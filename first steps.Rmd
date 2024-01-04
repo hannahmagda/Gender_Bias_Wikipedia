@@ -1,0 +1,58 @@
+---
+title: "first steps"
+author: "Hannah Schweren"
+date: "2024-01-04"
+output: html_document
+---
+
+```{r}
+library(legislatoR)
+library(WikipediR)
+library(rvest)
+library(dplyr)
+```
+
+```{r}
+deu_core <- get_core(legislature = "deu")
+deu_core <- head(deu_core)
+```
+
+```{r}
+#alle backlinks, die auf die Seite verweisen - vergleich Frauen&Männer?
+all_bls <- page_backlinks("de","wikipedia", page = "Achim_Großmann")
+```
+
+```{r}
+
+#einzelne person:
+
+wp_content <- page_content("de","wikipedia", page_name = "Achim_Großmann")
+
+html_text(read_html(wp_content$parse$text$`*`))
+```
+
+```{r}
+
+
+text_pipeline <- function(page_name) {
+  Sys.sleep(3)
+  
+  wp_content <- page_content("de", "wikipedia", page_name = page_name)
+  
+  plain_text <- html_text(read_html(wp_content$parse$text$`*`))
+  
+  return(plain_text)
+}
+
+```
+
+```{r}
+
+#iterate over dataset
+deu_core_text <- deu_core %>%
+  mutate(plain_text = sapply(wikititle, text_pipeline))
+
+# 'plain_text' enthält nun die plain text Versionen der Wikipedia-Artikel
+
+```
+
