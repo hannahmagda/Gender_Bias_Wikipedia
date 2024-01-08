@@ -10,11 +10,13 @@ library(legislatoR)
 library(WikipediR)
 library(rvest)
 library(dplyr)
+library(stringr) #für word count
+
 ```
 
 ```{r}
 deu_core <- get_core(legislature = "deu")
-deu_core <- head(deu_core)
+#deu_core <- head(deu_core)
 ```
 
 ```{r}
@@ -26,22 +28,41 @@ all_bls <- page_backlinks("de","wikipedia", page = "Achim_Großmann")
 
 #einzelne person:
 
-wp_content <- page_content("de","wikipedia", page_name = "Achim_Großmann")
+wp_content <- page_content("de","wikipedia", page_name = "Andreas_Wagner_(Politiker,_1972)")
 
 html_text(read_html(wp_content$parse$text$`*`))
 ```
 
 ```{r}
+###########functions
 
+###text retreival
 
 text_pipeline <- function(page_name) {
-  Sys.sleep(3)
+  Sys.sleep(runif(1, 1, 2))
   
-  wp_content <- page_content("de", "wikipedia", page_name = page_name)
+  # Check if page_name is missing
+  if (is.na(page_name) || page_name == "") {
+    return("No Wikipedia page name provided or missing.")
+  }
   
-  plain_text <- html_text(read_html(wp_content$parse$text$`*`))
-  
-  return(plain_text)
+  # Try fetching Wikipedia content
+  tryCatch({
+    wp_content <- WikipediR::page_content("de", "wikipedia", page_name = page_name)
+    plain_text <- html_text(read_html(wp_content$parse$text$`*`))
+    return(plain_text)
+  }, error = function(e) {
+    return(paste("Error fetching content for page:", page_name))
+  })
+}
+
+
+
+###word count
+
+count_words <- function(text) {
+  words <- str_extract_all(text, "\\b\\w+\\b")[[1]]
+  return(length(words))
 }
 
 ```
@@ -52,7 +73,58 @@ text_pipeline <- function(page_name) {
 deu_core_text <- deu_core %>%
   mutate(plain_text = sapply(wikititle, text_pipeline))
 
-# 'plain_text' enthält nun die plain text Versionen der Wikipedia-Artikel
+# 'plain_text' enthält nur die plain text Versionen der Wikipedia-Artikel
 
+```
+
+```{r}
+deu_core_text$Word_Count <- sapply(deu_core_text$plain_text, count_words)
+
+```
+
+```{r}
+deu_history <- get_history(legislature = "deu")
+
+#join relevant data
+
+deu_edits <- deu_history %>%
+  left_join(select(deu_core, pageid, sex, wikititle), by = "pageid")
+```
+
+```{r}
+
+###durchschnittl.edits pro monat pro politiker*in
+
+# Umwandlung des Timestamp in ein Datumsobjekt
+deu_edits$timestamp <- as.Date(deu_edits$timestamp)
+
+# Extrahieren von Monat und Jahr
+deu_edits$Month <- format(deu_edits$timestamp, "%Y-%m")
+
+# Gruppieren und Zusammenfassen
+edits_per_politician_month <- deu_edits %>%
+  group_by(wikititle, Month) %>%
+  summarise(Edits_Count = n())
+
+# Durchschnitt pro Monat pro Politikerin berechnen
+avg_edits_per_politician_month <- edits_per_politician_month %>%
+  group_by(wikititle) %>%
+  summarise(Avg_Edits_Per_Month = mean(Edits_Count))
+
+
+##########################################################################################################################################
+###durchschnittl.anzahl edits pro politiker*in
+
+
+# Gruppieren und Zusammenfassen
+edits_per_politician <- deu_edits %>%
+  group_by(wikititle) %>%
+  summarise(Total_Edits = n())
+
+# Durchschnittliche Gesamtbearbeitungen pro Politiker berechnen
+average_edits_per_politician <- mean(result$Total_Edits)
+
+# Ergebnisse anzeigen
+print(average_edits_per_politician)
 ```
 
