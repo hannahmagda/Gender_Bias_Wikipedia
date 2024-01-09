@@ -18,6 +18,9 @@ library(ggplot2)
 ```{r}
 deu_core <- get_core(legislature = "deu")
 #deu_core <- head(deu_core)
+deu_core_alive <- deu_core %>% filter(is.na(death))
+
+deu_pol <- get_political(legislature = "deu")
 ```
 
 ```{r}
@@ -71,7 +74,7 @@ count_words <- function(text) {
 ```{r}
 
 #iterate over dataset
-deu_core_text <- deu_core %>%
+deu_alive_text <- deu_core_alive %>%
   mutate(plain_text = sapply(wikititle, text_pipeline))
 
 # 'plain_text' enthält nur die plain text Versionen der Wikipedia-Artikel
@@ -79,8 +82,21 @@ deu_core_text <- deu_core %>%
 ```
 
 ```{r}
-deu_core_text$Word_Count <- sapply(deu_core_text$plain_text, count_words)
+deu_alive_text$Word_Count <- sapply(deu_alive_text$plain_text, count_words)
 
+
+#save the current state of scraped data
+write.csv(deu_alive_text, file = "")
+
+```
+
+```{r}
+ggplot(deu_alive_text, aes(x = Word_Count, fill = sex)) +
+  geom_bar(stat = "count", position = "dodge") +
+  labs(x = "Word_Count", y = "Count", title = "Distribution of word count by Gender") +
+  scale_fill_manual(values = c("blue", "pink")) + # Farben anpassen
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
 ```
 
 ```{r}
