@@ -86,11 +86,18 @@ deu_alive_text$Word_Count <- sapply(deu_alive_text$plain_text, count_words)
 
 
 #save the current state of scraped data
-write.csv(deu_alive_text, file = "")
+write.csv(deu_alive_text, file = "deu_alive_text")
 
 ```
 
 ```{r}
+
+deu_alive_text$Word_Count <- cut(deu_alive_text$Word_Count, 
+                                 breaks = c(0, 100, 2000, 3000, 5000, 7000, 9000, 30000),
+                                 labels = c("0-100", "101-2000", "2001-3000", "3001-5000", "5001-7000", "7001-9000", "9001-30000"),
+                                 include.lowest = TRUE)  # include.lowest to include the lower bound in the first interval
+
+
 ggplot(deu_alive_text, aes(x = Word_Count, fill = sex)) +
   geom_bar(stat = "count", position = "dodge") +
   labs(x = "Word_Count", y = "Count", title = "Distribution of word count by Gender") +
