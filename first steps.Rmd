@@ -2,9 +2,13 @@
 title: "first steps"
 author: "Hannah Schweren"
 date: "2024-01-04"
+bibliography: bibliographie_thesis_test.bib
 output: html_document
 ---
 
+test reference [@gobel_comparative_2022]
+
+## load all necessary packages
 ```{r}
 library(legislatoR)
 library(WikipediR)
@@ -15,34 +19,63 @@ library(ggplot2)
 
 ```
 
+## Data Aquisition
+
+# Currently one of ‘aut’, ‘can’, ‘cze’, ‘esp’, ‘fra’, ‘deu’, ‘irl’, ‘sco’, ‘gbr’, ‘usa_house’, or ‘usa_senate’
 ```{r}
+
+fr_core <-  get_core((legislature = "fra"))
+fr_core_alive <- fr_core %>% filter(is.na(death))
+
 deu_core <- get_core(legislature = "deu")
-#deu_core <- head(deu_core)
 deu_core_alive <- deu_core %>% filter(is.na(death))
 
-deu_pol <- get_political(legislature = "deu")
+aut_core <- get_core(legislature = "aut")
+aut_core_alive <- aut_core %>% filter(is.na(death))
+
+can_core <- get_core(legislature = "can")
+can_core_alive <- can_core %>% filter(is.na(death))
+
+cze_core <- get_core(legislature = "cze")
+cze_core_alive <- cze_core %>% filter(is.na(death))
+
+esp_core <- get_core(legislature = "esp")
+esp_core_alive <- esp_core %>% filter(is.na(death))
+
+irl_core <- get_core(legislature = "irl")
+irl_core_alive <- irl_core %>% filter(is.na(death))
+
+sco_core <- get_core(legislature = "sco")
+sco_core_alive <- sco_core %>% filter(is.na(death))
+
+gbr_core <- get_core(legislature = "gbr")
+gbr_core_alive <- gbr_core %>% filter(is.na(death))
+
+use_house <- get_core(legislature = "usa_house")
+use_senate <- get_core(legislature = "usa_senate")
+
+usa_core <- bind_rows(use_house, use_senate)
+usa_core_alive <- usa_core %>% filter(is.na(death))
+
+
+
+ 
+#deu_pol <- get_political(legislature = "deu")
 ```
 
 ```{r}
 #alle backlinks, die auf die Seite verweisen - vergleich Frauen&Männer?
-all_bls <- page_backlinks("de","wikipedia", page = "Achim_Großmann")
+# all_bls <- page_backlinks("de","wikipedia", page = "Achim_Großmann")
 ```
 
-```{r}
 
-#einzelne person:
-
-wp_content <- page_content("de","wikipedia", page_name = "Andreas_Wagner_(Politiker,_1972)")
-
-html_text(read_html(wp_content$parse$text$`*`))
-```
 
 ```{r}
 ###########functions
 
-###text retreival
+###text aquisition german
 
-text_pipeline <- function(page_name) {
+de_text_pipeline <- function(page_name) {
   Sys.sleep(runif(1, 1, 2))
   
   # Check if page_name is missing
@@ -61,6 +94,41 @@ text_pipeline <- function(page_name) {
 }
 
 
+###text aquisition english
+
+en_text_pipeline <- function(page_name) {
+  Sys.sleep(runif(1, 1, 2))
+  
+  # Überprüfen, ob der page_name fehlt
+  if (is.na(page_name) || page_name == "") {
+    return("Es wurde kein Wikipedia-Seitenname angegeben oder es fehlt.")
+  }
+  
+  # Versuchen, Wikipedia-Inhalt abzurufen
+  tryCatch({
+    en_wp_content <- WikipediR::page_content("en", "wikipedia", page_name = page_name)
+    
+    # Überprüfen, ob Inhalt verfügbar ist
+    if (!is.null(en_wp_content$parse$text$`*`)) {
+      en_html_content <- en_wp_content$parse$text$`*`
+      
+      # HTML-Text in lesbar formatierten Text umwandeln
+      en_plain_text <- html_text(read_html(en_html_content), trim = TRUE)
+      
+      return(en_plain_text)
+    } else {
+      return(paste("Kein Inhalt gefunden für Seite:", page_name))
+    }
+  }, error = function(e) {
+    return(paste("Fehler beim Abrufen des Inhalts für Seite:", page_name))
+  })
+}
+
+# Beispiel-Nutzung
+result <- en_text_pipeline("Aaron_Bell_(politician)")
+cat(result)
+
+
 
 ###word count
 
@@ -73,128 +141,152 @@ count_words <- function(text) {
 
 ```{r}
 
-#iterate over dataset
-deu_alive_text <- deu_core_alive %>%
-  mutate(plain_text = sapply(wikititle, text_pipeline))
-
-# 'plain_text' enthält nur die plain text Versionen der Wikipedia-Artikel
-
-```
-
-```{r}
-deu_alive_text$Word_Count <- sapply(deu_alive_text$plain_text, count_words)
-
-
-#save the current state of scraped data
-write.csv(deu_alive_text, file = "deu_alive_text")
+# #iterate over dataset
+# deu_alive_text <- deu_core_alive %>%
+#   mutate(plain_text = sapply(wikititle, text_pipeline))
+# 
+# # 'plain_text' enthält nur die plain text Versionen der Wikipedia-Artikel
 
 ```
 
 ```{r}
+# deu_alive_text$Word_Count <- sapply(deu_alive_text$plain_text, count_words)
+# 
+# 
+# #save the current state of scraped data
+# write.csv(deu_alive_text, file = "deu_alive_text")
 
-deu_alive_text$Word_Count <- cut(deu_alive_text$Word_Count, 
-                                 breaks = c(0, 100, 2000, 3000, 5000, 7000, 9000, 30000),
-                                 labels = c("0-100", "101-2000", "2001-3000", "3001-5000", "5001-7000", "7001-9000", "9001-30000"),
-                                 include.lowest = TRUE)  # include.lowest to include the lower bound in the first interval
-
-
-ggplot(deu_alive_text, aes(x = Word_Count, fill = sex)) +
-  geom_bar(stat = "count", position = "dodge") +
-  labs(x = "Word_Count", y = "Count", title = "Distribution of word count by Gender") +
-  scale_fill_manual(values = c("blue", "pink")) + # Farben anpassen
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
-```
-
-```{r}
-deu_history <- get_history(legislature = "deu")
-
-#join relevant data
-
-deu_edits <- deu_history %>%
-  left_join(select(deu_core, pageid, sex, wikititle), by = "pageid")
 ```
 
 ```{r}
 
-###durchschnittl.edits pro monat pro politiker*in
+# deu_alive_text$Word_Count <- cut(deu_alive_text$Word_Count, 
+#                                  breaks = c(0, 100, 2000, 3000, 5000, 7000, 9000, 30000),
+#                                  labels = c("0-100", "101-2000", "2001-3000", "3001-5000", "5001-7000", "7001-9000", "9001-30000"),
+#                                  include.lowest = TRUE)  # include.lowest to include the lower bound in the first interval
+# 
+# 
+# ggplot(deu_alive_text, aes(x = Word_Count, fill = sex)) +
+#   geom_bar(stat = "count", position = "dodge") +
+#   labs(x = "Word_Count", y = "Count", title = "Distribution of word count by Gender") +
+#   scale_fill_manual(values = c("blue", "pink")) + # Farben anpassen
+#   theme_minimal() +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+```
 
-########women#############
-
-# Umwandlung des Timestamp in ein Datumsobjekt
-deu_edits$timestamp <- as.Date(deu_edits$timestamp)
-
-# Extrahieren von Monat und Jahr
-deu_edits$Month <- format(deu_edits$timestamp, "%Y-%m")
-
-deu_edits_fem <- deu_edits %>% filter(sex == "female")
-
-# Gruppieren und Zusammenfassen
-edits_per_politician_month_fem <- deu_edits_fem %>%
-  group_by(wikititle, Month) %>%
-  summarise(Edits_Count = n())
-
-# Durchschnitt pro Monat pro Politikerin berechnen
-avg_edits_per_politician_month_fem <- edits_per_politician_month_fem %>%
-  group_by(wikititle) %>%
-  summarise(Avg_Edits_Per_Month = mean(Edits_Count))
-
-#########men############
-
-
-# Extrahieren von Monat und Jahr
-
-deu_edits_male <- deu_edits %>% filter(sex == "male")
-
-# Gruppieren und Zusammenfassen
-edits_per_politician_month_male <- deu_edits_male %>%
-  group_by(wikititle, Month) %>%
-  summarise(Edits_Count = n())
-
-# Durchschnitt pro Monat pro Politikerin berechnen
-avg_edits_per_politician_month_male <- edits_per_politician_month_male %>%
-  group_by(wikititle) %>%
-  summarise(Avg_Edits_Per_Month = mean(Edits_Count))
-
-##########################################################################################################################################
-###durchschnittl.anzahl edits pro politiker*in
-
-
-# Gruppieren und Zusammenfassen
-edits_per_politician <- deu_edits %>%
-  group_by(wikititle) %>%
-  summarise(Total_Edits = n())
-
-# Durchschnittliche Gesamtbearbeitungen pro Politiker berechnen
-average_edits_per_politician <- mean(result$Total_Edits)
-
-# Ergebnisse anzeigen
-print(average_edits_per_politician)
+```{r}
+# deu_history <- get_history(legislature = "deu")
+# 
+# #join relevant data
+# 
+# deu_edits <- deu_history %>%
+#   left_join(select(deu_core, pageid, sex, wikititle), by = "pageid")
 ```
 
 ```{r}
 
-combined_data <- rbind(
-  cbind(avg_edits_per_politician_month_fem, Gender = "Female"),
-  cbind(avg_edits_per_politician_month_male, Gender = "Male")
-)
-
-combined_data$Avg_Monthly_Edits_Grouped <- cut(combined_data$Avg_Edits_Per_Month, breaks = c(0, 5, 10, 15, 20), labels = c("0-5", "6-10", "11-15", "16-20"))
-
-
-ggplot(combined_data, aes(x = as.factor(Avg_Monthly_Edits_Grouped), fill = Gender)) +
-  geom_bar(stat = "count", position = "dodge") +
-  labs(x = "Average Monthly Edits", y = "Count", title = "Distribution of Average Monthly Edits by Gender") +
-  scale_fill_manual(values = c("blue", "pink")) + # Farben anpassen
-  theme_minimal()
-
-ggplot(combined_data, aes(x = Avg_Monthly_Edits_Grouped, fill = Gender)) +
-  geom_bar(stat = "count", position = "dodge") +
-  labs(x = "Average Monthly Edits (Grouped)", y = "Count", title = "Distribution of Average Monthly Edits by Gender") +
-  scale_fill_manual(values = c("blue", "pink")) + # Farben anpassen
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
-
-barplot
+# ###durchschnittl.edits pro monat pro politiker*in
+# 
+# ########women#############
+# 
+# # Umwandlung des Timestamp in ein Datumsobjekt
+# deu_edits$timestamp <- as.Date(deu_edits$timestamp)
+# 
+# # Extrahieren von Monat und Jahr
+# deu_edits$Month <- format(deu_edits$timestamp, "%Y-%m")
+# 
+# deu_edits_fem <- deu_edits %>% filter(sex == "female")
+# 
+# # Gruppieren und Zusammenfassen
+# edits_per_politician_month_fem <- deu_edits_fem %>%
+#   group_by(wikititle, Month) %>%
+#   summarise(Edits_Count = n())
+# 
+# # Durchschnitt pro Monat pro Politikerin berechnen
+# avg_edits_per_politician_month_fem <- edits_per_politician_month_fem %>%
+#   group_by(wikititle) %>%
+#   summarise(Avg_Edits_Per_Month = mean(Edits_Count))
+# 
+# #########men############
+# 
+# 
+# # Extrahieren von Monat und Jahr
+# 
+# deu_edits_male <- deu_edits %>% filter(sex == "male")
+# 
+# # Gruppieren und Zusammenfassen
+# edits_per_politician_month_male <- deu_edits_male %>%
+#   group_by(wikititle, Month) %>%
+#   summarise(Edits_Count = n())
+# 
+# # Durchschnitt pro Monat pro Politikerin berechnen
+# avg_edits_per_politician_month_male <- edits_per_politician_month_male %>%
+#   group_by(wikititle) %>%
+#   summarise(Avg_Edits_Per_Month = mean(Edits_Count))
+# 
+# ##########################################################################################################################################
+# ###durchschnittl.anzahl edits pro politiker*in
+# 
+# 
+# # Gruppieren und Zusammenfassen
+# edits_per_politician <- deu_edits %>%
+#   group_by(wikititle) %>%
+#   summarise(Total_Edits = n())
+# 
+# # Durchschnittliche Gesamtbearbeitungen pro Politiker berechnen
+# average_edits_per_politician <- mean(result$Total_Edits)
+# 
+# # Ergebnisse anzeigen
+# print(average_edits_per_politician)
 ```
+
+```{r}
+
+# combined_data <- rbind(
+#   cbind(avg_edits_per_politician_month_fem, Gender = "Female"),
+#   cbind(avg_edits_per_politician_month_male, Gender = "Male")
+# )
+# 
+# combined_data$Avg_Monthly_Edits_Grouped <- cut(combined_data$Avg_Edits_Per_Month, breaks = c(0, 5, 10, 15, 20), labels = c("0-5", "6-10", "11-15", "16-20"))
+# 
+# 
+# ggplot(combined_data, aes(x = as.factor(Avg_Monthly_Edits_Grouped), fill = Gender)) +
+#   geom_bar(stat = "count", position = "dodge") +
+#   labs(x = "Average Monthly Edits", y = "Count", title = "Distribution of Average Monthly Edits by Gender") +
+#   scale_fill_manual(values = c("blue", "pink")) + # Farben anpassen
+#   theme_minimal()
+# 
+# ggplot(combined_data, aes(x = Avg_Monthly_Edits_Grouped, fill = Gender)) +
+#   geom_bar(stat = "count", position = "dodge") +
+#   labs(x = "Average Monthly Edits (Grouped)", y = "Count", title = "Distribution of Average Monthly Edits by Gender") +
+#   scale_fill_manual(values = c("blue", "pink")) + # Farben anpassen
+#   theme_minimal() +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+# 
+# barplot
+```
+
+
+1. Summary: Describe the main goals of the project, what is the scientific question you are trying to answer, and how will you go about it in no more than 300 words.
+
+The project is following the goal of measuring gender bias in politician's wikipedoa biographies in an international context. Previous research has shown that there is a considerate lexical bias in general biographies in wikipedia. I want to focus on one specific group of biographies and find out, if general conclusions are valid for this specific group as well. Further, a lot of research is focussed on english articles. I want to compare the resutls of different countrie's politcians and thus also include other languages. My research questions are thus:
+QR1: Can resutls of previous research concerning lexical gender bias in biographies be transfered to the subgroup of politican's biographies?
+RQ2: How do the results vary in the international context?
+
+2. Motivation and background: Why is this research question interesting to you, how does your background align with the topic, and what skills or knowledge do you want to acquire by doing the work that is valuable for your future career?
+
+
+
+3. Introduction: Discuss what is the context for the research question and what previous work has been conducted in this area. Please discuss 1-3 key academic papers that are most relevant to your project. You should summarise the papers, the goal and achievement of the papers, data and methods used in the papers, and how they relate to your proposed topic. Also include references to other relevant papers in the introduction as needed.
+
+
+
+4. Research question: What research question will you try to answer with the thesis and what is the main approach to address the question? If you are testing hypotheses, specify them here as well
+
+
+
+5. Data and methods: What data and methods are you planning to use? Please be as specific as possible in what you want to approach to achieve to facilitate further discussion whether it is appropriate for answering the research question. Also mention alternative methods, especially if you are unsure about which method is best. This is the core part of the PAP!
+
+6. In addition to the pre-analysis plan, I ask you to prepare a data report. That can be very hands-on and the content might vary depending on the data you're working with and your plans for analysis. Overall, the report should give me a good sense of the data you'll be working with, such as the variation of the outcome variable(s), the covariate setup, missingness issues, etc. This report can be very hands-on, i.e. you import and process the data and present insights with figures, tables, and regular R output (whatever fits best), and provide your take.
+
 
