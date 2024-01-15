@@ -94,6 +94,26 @@ de_text_pipeline <- function(page_name) {
 }
 
 
+###text aquisition french
+
+fra_text_pipeline <- function(page_name) {
+  Sys.sleep(runif(1, 1, 2))
+  
+  # Check if page_name is missing
+  if (is.na(page_name) || page_name == "") {
+    return("No Wikipedia page name provided or missing.")
+  }
+  
+  # Try fetching Wikipedia content
+  tryCatch({
+    wp_content <- WikipediR::page_content("fr", "wikipedia", page_name = page_name)
+    plain_text <- html_text(read_html(wp_content$parse$text$`*`))
+    return(plain_text)
+  }, error = function(e) {
+    return(paste("Error fetching content for page:", page_name))
+  })
+}
+
 ###text aquisition english
 
 en_text_pipeline <- function(page_name) {
@@ -124,9 +144,9 @@ en_text_pipeline <- function(page_name) {
   })
 }
 
-# Beispiel-Nutzung
-result <- en_text_pipeline("Aaron_Bell_(politician)")
-cat(result)
+# # Beispiel-Nutzung
+# result <- en_text_pipeline("Aaron_Bell_(politician)")
+# cat(result)
 
 
 
@@ -146,17 +166,21 @@ count_words <- function(text) {
 #   mutate(plain_text = sapply(wikititle, text_pipeline))
 # 
 # # 'plain_text' enthält nur die plain text Versionen der Wikipedia-Artikel
-
-```
-
-```{r}
 # deu_alive_text$Word_Count <- sapply(deu_alive_text$plain_text, count_words)
 # 
 # 
 # #save the current state of scraped data
 # write.csv(deu_alive_text, file = "deu_alive_text")
 
+
+fr_alive_text <- fr_core_alive %>%
+  mutate(plain_text = sapply(wikititle, fra_text_pipeline))
+
+fr_alive_text$word_Count <- sapply(fr_alive_text$plain_text, count_words)
+write.csv(fr_alive_text, file = "fr_alive_text.csv")
+
 ```
+
 
 ```{r}
 
