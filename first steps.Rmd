@@ -163,21 +163,39 @@ count_words <- function(text) {
 
 # #iterate over dataset
 # deu_alive_text <- deu_core_alive %>%
-#   mutate(plain_text = sapply(wikititle, text_pipeline))
+#   mutate(plain_text = sapply(wikititle, de_text_pipeline))
 # 
 # # 'plain_text' enthält nur die plain text Versionen der Wikipedia-Artikel
 # deu_alive_text$Word_Count <- sapply(deu_alive_text$plain_text, count_words)
 # 
 # 
 # #save the current state of scraped data
-# write.csv(deu_alive_text, file = "deu_alive_text")
+#write.csv(deu_alive_text, file = "deu_alive_text.csv")
 
 
-fr_alive_text <- fr_core_alive %>%
-  mutate(plain_text = sapply(wikititle, fra_text_pipeline))
+# aut_alive_text <- aut_core_alive %>%
+#   mutate(plain_text = sapply(wikititle, de_text_pipeline))
+# aut_alive_text$Word_Count <- sapply(aut_alive_text$plain_text, count_words)
+# write.csv(aut_alive_text, file = "aut_alive_text.csv")
 
-fr_alive_text$word_Count <- sapply(fr_alive_text$plain_text, count_words)
-write.csv(fr_alive_text, file = "fr_alive_text.csv")
+
+
+
+# 
+# # 'plain_text' enthält nur die plain text Versionen der Wikipedia-Artikel
+# deu_alive_text$Word_Count <- sapply(deu_alive_text$plain_text, count_words)
+# 
+# 
+# #save the current state of scraped data
+#write.csv(deu_alive_text, file = "deu_alive_text.csv")
+
+
+
+# fr_alive_text <- fr_core_alive %>%
+#   mutate(plain_text = sapply(wikititle, fra_text_pipeline))
+# 
+# fr_alive_text$word_Count <- sapply(fr_alive_text$plain_text, count_words)
+# write.csv(fr_alive_text, file = "fr_alive_text.csv")
 
 ```
 
