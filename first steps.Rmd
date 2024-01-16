@@ -24,14 +24,14 @@ library(ggplot2)
 # Currently one of ‘aut’, ‘can’, ‘cze’, ‘esp’, ‘fra’, ‘deu’, ‘irl’, ‘sco’, ‘gbr’, ‘usa_house’, or ‘usa_senate’
 ```{r}
 
-fr_core <-  get_core((legislature = "fra"))
-fr_core_alive <- fr_core %>% filter(is.na(death))
+# fr_core <-  get_core((legislature = "fra"))
+# fr_core_alive <- fr_core %>% filter(is.na(death))
 
-deu_core <- get_core(legislature = "deu")
-deu_core_alive <- deu_core %>% filter(is.na(death))
+# deu_core <- get_core(legislature = "deu")
+# deu_core_alive <- deu_core %>% filter(is.na(death))
 
-aut_core <- get_core(legislature = "aut")
-aut_core_alive <- aut_core %>% filter(is.na(death))
+# aut_core <- get_core(legislature = "aut")
+# aut_core_alive <- aut_core %>% filter(is.na(death))
 
 can_core <- get_core(legislature = "can")
 can_core_alive <- can_core %>% filter(is.na(death))
@@ -39,8 +39,8 @@ can_core_alive <- can_core %>% filter(is.na(death))
 cze_core <- get_core(legislature = "cze")
 cze_core_alive <- cze_core %>% filter(is.na(death))
 
-esp_core <- get_core(legislature = "esp")
-esp_core_alive <- esp_core %>% filter(is.na(death))
+# esp_core <- get_core(legislature = "esp")
+# esp_core_alive <- esp_core %>% filter(is.na(death))
 
 irl_core <- get_core(legislature = "irl")
 irl_core_alive <- irl_core %>% filter(is.na(death))
@@ -51,10 +51,10 @@ sco_core_alive <- sco_core %>% filter(is.na(death))
 gbr_core <- get_core(legislature = "gbr")
 gbr_core_alive <- gbr_core %>% filter(is.na(death))
 
-use_house <- get_core(legislature = "usa_house")
-use_senate <- get_core(legislature = "usa_senate")
+usa_house <- get_core(legislature = "usa_house")
+usa_senate <- get_core(legislature = "usa_senate")
 
-usa_core <- bind_rows(use_house, use_senate)
+usa_core <- bind_rows(usa_house, usa_senate)
 usa_core_alive <- usa_core %>% filter(is.na(death))
 
 
@@ -147,16 +147,16 @@ en_text_pipeline <- function(page_name) {
   
   # Versuchen, Wikipedia-Inhalt abzurufen
   tryCatch({
-    en_wp_content <- WikipediR::page_content("en", "wikipedia", page_name = page_name)
+    wp_content <- WikipediR::page_content("en", "wikipedia", page_name = page_name)
     
     # Überprüfen, ob Inhalt verfügbar ist
-    if (!is.null(en_wp_content$parse$text$`*`)) {
-      en_html_content <- en_wp_content$parse$text$`*`
+    if (!is.null(wp_content$parse$text$`*`)) {
+      html_content <- wp_content$parse$text$`*`
       
       # HTML-Text in lesbar formatierten Text umwandeln
-      en_plain_text <- html_text(read_html(en_html_content), trim = TRUE)
+      plain_text <- html_text(read_html(html_content), trim = TRUE)
       
-      return(en_plain_text)
+      return(plain_text)
     } else {
       return(paste("Kein Inhalt gefunden für Seite:", page_name))
     }
@@ -166,7 +166,7 @@ en_text_pipeline <- function(page_name) {
 }
 
 # # Beispiel-Nutzung
- result <- esp_text_pipeline("Abel_Matutes")
+ result <- en_text_pipeline("Adam_van_Koeverden")
 
 cat(result)
 
@@ -200,13 +200,20 @@ count_words <- function(text) {
 # aut_alive_text$Word_Count <- sapply(aut_alive_text$plain_text, count_words)
 # write.csv(aut_alive_text, file = "aut_alive_text.csv")
 
-esp_alive_text <- esp_core_alive %>%
-   mutate(plain_text = sapply(wikititle, esp_text_pipeline))
+# esp_alive_text <- esp_core_alive %>%
+#    mutate(plain_text = sapply(wikititle, esp_text_pipeline))
+#  
+# 
+# esp_alive_text$Word_Count <- sapply(esp_alive_text$plain_text, count_words)
+#  write.csv(esp_alive_text, file = "esp_alive_text.csv")
+
+ 
+ gbr_alive_text <- gbr_core_alive %>%
+   mutate(plain_text = sapply(wikititle, en_text_pipeline))
  
 
-esp_alive_text$Word_Count <- sapply(esp_alive_text$plain_text, count_words)
- write.csv(esp_alive_text, file = "esp_alive_text.csv")
-
+gbr_alive_text$Word_Count <- sapply(gbr_alive_text$plain_text, count_words)
+ write.csv(gbr_alive_text, file = "gbr_alive_text.csv")
 
 # 
 # # 'plain_text' enthält nur die plain text Versionen der Wikipedia-Artikel
