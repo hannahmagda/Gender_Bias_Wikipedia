@@ -207,13 +207,34 @@ count_words <- function(text) {
 # esp_alive_text$Word_Count <- sapply(esp_alive_text$plain_text, count_words)
 #  write.csv(esp_alive_text, file = "esp_alive_text.csv")
 
+#  
+#  gbr_alive_text <- gbr_core_alive %>%
+#    mutate(plain_text = sapply(wikititle, en_text_pipeline))
+#  
+# 
+# gbr_alive_text$Word_Count <- sapply(gbr_alive_text$plain_text, count_words)
+#  write.csv(gbr_alive_text, file = "gbr_alive_text.csv")
  
- gbr_alive_text <- gbr_core_alive %>%
+#  irl_alive_text <- irl_core_alive %>%
+#    mutate(plain_text = sapply(wikititle, en_text_pipeline))
+#  
+# 
+# irl_alive_text$Word_Count <- sapply(irl_alive_text$plain_text, count_words)
+#  write.csv(irl_alive_text, file = "irl_alive_text.csv")
+ 
+can_alive_text <- can_core_alive %>%
    mutate(plain_text = sapply(wikititle, en_text_pipeline))
  
 
-gbr_alive_text$Word_Count <- sapply(gbr_alive_text$plain_text, count_words)
- write.csv(gbr_alive_text, file = "gbr_alive_text.csv")
+can_alive_text$Word_Count <- sapply(can_alive_text$plain_text, count_words)
+ write.csv(can_alive_text, file = "can_alive_text.csv")
+ 
+ usa_alive_text <- usa_core_alive %>%
+   mutate(plain_text = sapply(wikititle, en_text_pipeline))
+ 
+
+usa_alive_text$Word_Count <- sapply(usa_alive_text$plain_text, count_words)
+ write.csv(usa_alive_text, file = "can_alive_text.csv")
 
 # 
 # # 'plain_text' enthält nur die plain text Versionen der Wikipedia-Artikel
