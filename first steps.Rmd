@@ -33,8 +33,8 @@ library(ggplot2)
 # aut_core <- get_core(legislature = "aut")
 # aut_core_alive <- aut_core %>% filter(is.na(death))
 
-can_core <- get_core(legislature = "can")
-can_core_alive <- can_core %>% filter(is.na(death))
+# can_core <- get_core(legislature = "can")
+# can_core_alive <- can_core %>% filter(is.na(death))
 
 cze_core <- get_core(legislature = "cze")
 cze_core_alive <- cze_core %>% filter(is.na(death))
@@ -42,20 +42,20 @@ cze_core_alive <- cze_core %>% filter(is.na(death))
 # esp_core <- get_core(legislature = "esp")
 # esp_core_alive <- esp_core %>% filter(is.na(death))
 
-irl_core <- get_core(legislature = "irl")
-irl_core_alive <- irl_core %>% filter(is.na(death))
+# irl_core <- get_core(legislature = "irl")
+# irl_core_alive <- irl_core %>% filter(is.na(death))
 
 sco_core <- get_core(legislature = "sco")
 sco_core_alive <- sco_core %>% filter(is.na(death))
 
-gbr_core <- get_core(legislature = "gbr")
-gbr_core_alive <- gbr_core %>% filter(is.na(death))
+# gbr_core <- get_core(legislature = "gbr")
+# gbr_core_alive <- gbr_core %>% filter(is.na(death))
 
-usa_house <- get_core(legislature = "usa_house")
-usa_senate <- get_core(legislature = "usa_senate")
-
-usa_core <- bind_rows(usa_house, usa_senate)
-usa_core_alive <- usa_core %>% filter(is.na(death))
+# usa_house <- get_core(legislature = "usa_house")
+# usa_senate <- get_core(legislature = "usa_senate")
+# 
+# usa_core <- bind_rows(usa_house, usa_senate)
+# usa_core_alive <- usa_core %>% filter(is.na(death))
 
 
 
@@ -107,6 +107,26 @@ esp_text_pipeline <- function(page_name) {
   # Try fetching Wikipedia content
   tryCatch({
     wp_content <- WikipediR::page_content("es", "wikipedia", page_name = page_name)
+    plain_text <- html_text(read_html(wp_content$parse$text$`*`))
+    return(plain_text)
+  }, error = function(e) {
+    return(paste("Error fetching content for page:", page_name))
+  })
+}
+
+###text aquisition spain
+
+cze_text_pipeline <- function(page_name) {
+  Sys.sleep(runif(1, 1, 2))
+  
+  # Check if page_name is missing
+  if (is.na(page_name) || page_name == "") {
+    return("No Wikipedia page name provided or missing.")
+  }
+  
+  # Try fetching Wikipedia content
+  tryCatch({
+    wp_content <- WikipediR::page_content("cs", "wikipedia", page_name = page_name)
     plain_text <- html_text(read_html(wp_content$parse$text$`*`))
     return(plain_text)
   }, error = function(e) {
@@ -166,7 +186,7 @@ en_text_pipeline <- function(page_name) {
 }
 
 # # Beispiel-Nutzung
- result <- en_text_pipeline("Adam_van_Koeverden")
+ result <- sze_text_pipeline("Milan_Pour")
 
 cat(result)
 
@@ -221,20 +241,20 @@ count_words <- function(text) {
 # 
 # irl_alive_text$Word_Count <- sapply(irl_alive_text$plain_text, count_words)
 #  write.csv(irl_alive_text, file = "irl_alive_text.csv")
- 
-can_alive_text <- can_core_alive %>%
-   mutate(plain_text = sapply(wikititle, en_text_pipeline))
- 
-
-can_alive_text$Word_Count <- sapply(can_alive_text$plain_text, count_words)
- write.csv(can_alive_text, file = "can_alive_text.csv")
- 
- usa_alive_text <- usa_core_alive %>%
-   mutate(plain_text = sapply(wikititle, en_text_pipeline))
- 
-
-usa_alive_text$Word_Count <- sapply(usa_alive_text$plain_text, count_words)
- write.csv(usa_alive_text, file = "can_alive_text.csv")
+#  
+# can_alive_text <- can_core_alive %>%
+#    mutate(plain_text = sapply(wikititle, en_text_pipeline))
+#  
+# 
+# can_alive_text$Word_Count <- sapply(can_alive_text$plain_text, count_words)
+#  write.csv(can_alive_text, file = "can_alive_text.csv")
+#  
+#  usa_alive_text <- usa_core_alive %>%
+#    mutate(plain_text = sapply(wikititle, en_text_pipeline))
+#  
+# 
+# usa_alive_text$Word_Count <- sapply(usa_alive_text$plain_text, count_words)
+#  write.csv(usa_alive_text, file = "usa_alive_text.csv")
 
 # 
 # # 'plain_text' enthält nur die plain text Versionen der Wikipedia-Artikel
@@ -244,7 +264,19 @@ usa_alive_text$Word_Count <- sapply(usa_alive_text$plain_text, count_words)
 # #save the current state of scraped data
 #write.csv(deu_alive_text, file = "deu_alive_text.csv")
 
+#  sco_alive_text <- sco_core_alive %>%
+#   mutate(plain_text = sapply(wikititle, en_text_pipeline))
+# 
+# sco_alive_text$Word_Count <- sapply(sco_alive_text$plain_text, count_words)
+# write.csv(sco_alive_text, file = "sco_alive_text.csv")
 
+
+
+ cze_alive_text <- cze_core_alive %>%
+  mutate(plain_text = sapply(wikititle, sze_text_pipeline))
+
+cze_alive_text$Word_Count <- sapply(cze_alive_text$plain_text, count_words)
+write.csv(cze_alive_text, file = "cze_alive_text.csv")
 
 # fr_alive_text <- fr_core_alive %>%
 #   mutate(plain_text = sapply(wikititle, fra_text_pipeline))
