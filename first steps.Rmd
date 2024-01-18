@@ -16,6 +16,7 @@ library(rvest)
 library(dplyr)
 library(stringr) #für word count
 library(ggplot2)
+library(stringr) #remove css like structures
 
 ```
 
@@ -36,8 +37,8 @@ library(ggplot2)
 # can_core <- get_core(legislature = "can")
 # can_core_alive <- can_core %>% filter(is.na(death))
 
-cze_core <- get_core(legislature = "cze")
-cze_core_alive <- cze_core %>% filter(is.na(death))
+# cze_core <- get_core(legislature = "cze")
+# cze_core_alive <- cze_core %>% filter(is.na(death))
 
 # esp_core <- get_core(legislature = "esp")
 # esp_core_alive <- esp_core %>% filter(is.na(death))
@@ -45,8 +46,8 @@ cze_core_alive <- cze_core %>% filter(is.na(death))
 # irl_core <- get_core(legislature = "irl")
 # irl_core_alive <- irl_core %>% filter(is.na(death))
 
-sco_core <- get_core(legislature = "sco")
-sco_core_alive <- sco_core %>% filter(is.na(death))
+# sco_core <- get_core(legislature = "sco")
+# sco_core_alive <- sco_core %>% filter(is.na(death))
 
 # gbr_core <- get_core(legislature = "gbr")
 # gbr_core_alive <- gbr_core %>% filter(is.na(death))
@@ -185,11 +186,6 @@ en_text_pipeline <- function(page_name) {
   })
 }
 
-# # Beispiel-Nutzung
- result <- sze_text_pipeline("Milan_Pour")
-
-cat(result)
-
 
 
 ###word count
@@ -272,17 +268,41 @@ count_words <- function(text) {
 
 
 
- cze_alive_text <- cze_core_alive %>%
-  mutate(plain_text = sapply(wikititle, sze_text_pipeline))
-
-cze_alive_text$Word_Count <- sapply(cze_alive_text$plain_text, count_words)
-write.csv(cze_alive_text, file = "cze_alive_text.csv")
+#  cze_alive_text <- cze_core_alive %>%
+#   mutate(plain_text = sapply(wikititle, sze_text_pipeline))
+# 
+# cze_alive_text$Word_Count <- sapply(cze_alive_text$plain_text, count_words)
+# write.csv(cze_alive_text, file = "cze_alive_text.csv")
 
 # fr_alive_text <- fr_core_alive %>%
 #   mutate(plain_text = sapply(wikititle, fra_text_pipeline))
 # 
 # fr_alive_text$word_Count <- sapply(fr_alive_text$plain_text, count_words)
 # write.csv(fr_alive_text, file = "fr_alive_text.csv")
+
+```
+
+
+```{r}
+#remove css like structures
+
+sco_alive_text$plain_text <- str_remove_all(sco_alive_text$plain_text, "\\..*?\\{.*?\\}")
+usa_alive_text$plain_text <- str_remove_all(usa_alive_text$plain_text, "\\..*?\\{.*?\\}")
+
+
+
+#clean data, remove missing/unuseful wikipedia data
+sco_alive_text <- sco_alive_text %>%
+  filter(!grepl("^Redirect to:", plain_text, ignore.case = TRUE) &
+         !grepl("may refer to:", plain_text, ignore.case = TRUE))
+
+usa_alive_text <- usa_alive_text %>%
+  filter(!grepl("^Redirect to:", plain_text, ignore.case = TRUE) &
+         !grepl("may refer to:", plain_text, ignore.case = TRUE))
+
+sco_alive_text$Word_Count <- sapply(sco_alive_text$plain_text, count_words)
+
+
 
 ```
 
@@ -403,6 +423,8 @@ QR1: Can resutls of previous research concerning lexical gender bias in biograph
 RQ2: How do the results vary in the international context?
 
 2. Motivation and background: Why is this research question interesting to you, how does your background align with the topic, and what skills or knowledge do you want to acquire by doing the work that is valuable for your future career?
+
+This research question is interesting to me as I am interested in gender equality topics for several years now, having studies the child penalty, working with the issue of the gender care gap in my student jobs and overall being motivated to learn more about gender related inequalities. Int he scope of my masters thesis, i want to learn more about such issues in the online world, wikipedia is used by over 4 billion unique global visitors a month and the seventh most visited websites worldwide in 2022. Thus, it is very exciting to see, what differences there are between male and female politicians. The category of politicians is specifically interested, being a public policy student, I am particularly intrigued by inequalities in this sphere as poliicians represent all citizens and have a real life impact.
 
 
 
