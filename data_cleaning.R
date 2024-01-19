@@ -97,6 +97,27 @@ clean_data <- function(df) {
 }
 
 
+traffic_metrics <- function(traffic_data) {
+  # Format the date
+  traffic_data$date <- format(traffic_data$date, "%Y-%m")
+  
+  # Total per politician
+  total_traffic_per_politician <- traffic_data %>%
+    group_by(pageid) %>%
+    summarise(total_traffic = sum(traffic))
+  
+  # Average per month per politician
+  average_traffic_per_politician <- total_traffic_per_politician %>%
+    mutate(average_traffic = total_traffic / n_distinct(traffic_data$date))
+  
+  # Convert pageid to numeric
+  average_traffic_per_politician$pageid <- as.numeric(average_traffic_per_politician$pageid)
+  
+  # Return the result
+  return(average_traffic_per_politician)
+}
+
+
 ###########################################################################################
 
 
@@ -137,41 +158,66 @@ ggplot(all_countries, aes(x = sex, fill = sex)) +
   theme(legend.title = element_blank())
 
 
-############# add data about traffic ##############################################################################
+################################## add traffic variable from get_traffic ###########################
 
-sco_traffic_subset <- dplyr::inner_join(x = dplyr::select(get_core(legislature = "sco"),
-                                                          pageid, wikidataid),
-                                        y = sco_traffic,
-                                        by = "pageid")
 
+deu_traffic <- get_traffic(legislature = "deu")
+deu_average_traffic <- traffic_metrics(deu_traffic)
+deu <- left_join(deu, select(deu_average_traffic, pageid, average_traffic), by = "pageid")
+
+fra_traffic <- get_traffic(legislature = "fra")
+fra_average_traffic <- traffic_metrics(fra_traffic)
+fra <- left_join(fra, select(fra_average_traffic, pageid, average_traffic), by = "pageid")
+
+gbr_traffic <- get_traffic(legislature = "gbr")
+gbr_average_traffic <- traffic_metrics(gbr_traffic)
+gbr <- left_join(gbr, select(gbr_average_traffic, pageid, average_traffic), by = "pageid")
+
+can_traffic <- get_traffic(legislature = "can")
+can_average_traffic <- traffic_metrics(can_traffic)
+can <- left_join(can, select(can_average_traffic, pageid, average_traffic), by = "pageid")
+
+aut_traffic <- get_traffic(legislature = "aut")
+aut_average_traffic <- traffic_metrics(aut_traffic)
+aut <- left_join(aut, select(aut_average_traffic, pageid, average_traffic), by = "pageid")
+
+
+# error because of NAs
+esp_traffic <- get_traffic(legislature = "esp")
+esp_average_traffic <- traffic_metrics(esp_traffic)
+esp <- left_join(esp, select(esp_average_traffic, pageid, average_traffic), by = "pageid")
+
+cze_traffic <- get_traffic(legislature = "cze")
+cze_average_traffic <- traffic_metrics(cze_traffic)
+cze <- left_join(cze, select(cze_average_traffic, pageid, average_traffic), by = "pageid")
 
 sco_traffic <- get_traffic(legislature = "sco")
-sco_traffic$date <- format(sco_traffic$date, "%Y-%m")
+sco_average_traffic <- traffic_metrics(sco_traffic)
+sco <- left_join(sco, select(sco_average_traffic, pageid, average_traffic), by = "pageid")
 
-#####funktioniert aber gibt keinen df aus
-# total per politician
+irl_traffic <- get_traffic(legislature = "irl")
+irl_average_traffic <- traffic_metrics(irl_traffic)
+irl <- left_join(irl, select(irl_average_traffic, pageid, average_traffic), by = "pageid")
 
-total_traffic_per_politician <- sco_traffic %>%
-  group_by(pageid) %>%
-  summarise(total_traffic = sum(traffic))
+usa_house_traffic <- get_traffic(legislature = "usa_house")
+usa_senate_traffic <- get_traffic(legislature = "usa_senate")
 
-#sanity check - genauso viele views wie in sco_traffic, nur nach politician geordnet
-sum(total_traffic_per_politician$total_traffic)
-
-
-## averge per month per politician
-average_traffic_per_politician <- total_traffic_per_politician %>%
-  mutate(average_traffic = total_traffic / n_distinct(sco_traffic$date))
-
-
-#############
+usa_traffic <- bind_rows(usa_house_traffic, usa_senate_traffic)
+usa_average_traffic <- traffic_metrics(usa_traffic)
+usa <- left_join(usa, select(usa_average_traffic, pageid, average_traffic), by = "pageid")
 
 
 
-average_traffic_per_politician <- average_traffic_per_politician %>%
-  mutate(pageid = as.numeric(pageid))
+################## save cleaned data ################################################
 
-# Perform the left join
-sco <- left_join(sco, select(average_traffic_per_politician, pageid, average_traffic), by = "pageid")
-
+write.csv(usa, file = "clean_data/usa.csv", row.names = FALSE)
+write.csv(deu, file = "clean_data/deu.csv", row.names = FALSE)
+write.csv(esp, file = "clean_data/esp.csv", row.names = FALSE)
+write.csv(gbr, file = "clean_data/gbr.csv", row.names = FALSE)
+write.csv(cze, file = "clean_data/cze.csv", row.names = FALSE)
+write.csv(sco, file = "clean_data/sco.csv", row.names = FALSE)
+write.csv(irl, file = "clean_data/irl.csv", row.names = FALSE)
+write.csv(can, file = "clean_data/can.csv", row.names = FALSE)
+write.csv(aut, file = "clean_data/aut.csv", row.names = FALSE)
+write.csv(fra, file = "clean_data/fra.csv", row.names = FALSE)
 
