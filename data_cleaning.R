@@ -129,13 +129,61 @@ library(ggplot2)
 ggplot(all_countries, aes(x = sex, fill = sex)) +
   geom_bar() +
   facet_wrap(~country, scales = "free_y") +
-  labs(title = "share of male/female politicians per country") +
-  xlab("Geschlecht") +
-  ylab("Anteil (%)") +
+  labs(title = "Number of male/female politicians per country") +
+  xlab("sex") +
+  ylab("number") +
   scale_fill_manual(values = c("male" = "blue", "female" = "pink")) +
   theme_minimal() +
   theme(legend.title = element_blank())
 
 
+############# add data about traffic ##############################################################################
 
+sco_traffic_subset <- dplyr::inner_join(x = dplyr::select(get_core(legislature = "sco"),
+                                                          pageid, wikidataid),
+                                        y = sco_traffic,
+                                        by = "pageid")
+
+
+sco_traffic <- get_traffic(legislature = "sco")
+sco_traffic$date <- format(sco_traffic$date, "%Y-%m")
+
+#####funktioniert aber gibt keinen df aus
+# total per politician
+
+total_traffic_per_politician <- sco_traffic %>%
+  group_by(pageid) %>%
+  summarise(total_traffic = sum(traffic))
+
+#sanity check - genauso viele views wie in sco_traffic, nur nach politician geordnet
+sum(total_traffic_per_politician$total_traffic)
+
+
+## averge per month per politician
+average_traffic_per_politician <- total_traffic_per_politician %>%
+  mutate(average_traffic_per_month = total_traffic / n_distinct(sco_traffic$date))
+
+
+#############
+
+# Calculate total traffic per politician
+total_traffic_per_politician <- sco_traffic %>%
+  group_by(pageid) %>%
+  summarise(total_traffic = sum(traffic))
+
+# Calculate average traffic per month per politician
+average_traffic_per_politician <- total_traffic_per_politician %>%
+  group_by(pageid) %>%
+  summarise(average_traffic_per_month = sum(total_traffic) / n_distinct(sco_traffic$date))
+
+# Print the structure of the resulting data frame
+average_traffic_per_politician <- as.numeric(average_traffic_per_politician$pageid)
+
+
+
+
+sco <- average_traffic_per_politician %>%
+  left_join(select(sco, pageid, sex, wikititle, plain_text), by = "pageid")
+
+result <- left_join(average_traffic_per_politician, sco, by = "pageid")
 
