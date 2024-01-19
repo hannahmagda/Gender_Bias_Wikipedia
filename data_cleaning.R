@@ -161,29 +161,17 @@ sum(total_traffic_per_politician$total_traffic)
 
 ## averge per month per politician
 average_traffic_per_politician <- total_traffic_per_politician %>%
-  mutate(average_traffic_per_month = total_traffic / n_distinct(sco_traffic$date))
+  mutate(average_traffic = total_traffic / n_distinct(sco_traffic$date))
 
 
 #############
 
-# Calculate total traffic per politician
-total_traffic_per_politician <- sco_traffic %>%
-  group_by(pageid) %>%
-  summarise(total_traffic = sum(traffic))
-
-# Calculate average traffic per month per politician
-average_traffic_per_politician <- total_traffic_per_politician %>%
-  group_by(pageid) %>%
-  summarise(average_traffic_per_month = sum(total_traffic) / n_distinct(sco_traffic$date))
-
-# Print the structure of the resulting data frame
-average_traffic_per_politician <- as.numeric(average_traffic_per_politician$pageid)
 
 
+average_traffic_per_politician <- average_traffic_per_politician %>%
+  mutate(pageid = as.numeric(pageid))
 
+# Perform the left join
+sco <- left_join(sco, select(average_traffic_per_politician, pageid, average_traffic), by = "pageid")
 
-sco <- average_traffic_per_politician %>%
-  left_join(select(sco, pageid, sex, wikititle, plain_text), by = "pageid")
-
-result <- left_join(average_traffic_per_politician, sco, by = "pageid")
 
