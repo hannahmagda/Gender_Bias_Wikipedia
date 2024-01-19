@@ -141,7 +141,7 @@ can <- clean_data(can_alive_text)
 
 
 #combine all data in one df
-all_countries <- rbind(deu, cze, fra, usa, gbr, sco, irl, esp, can, aut)
+all_countries <- rbind(deu, cze, fra, usa, sco, irl, can, aut) #without esp, gbr 
 
 
 
@@ -221,3 +221,39 @@ write.csv(can, file = "clean_data/can.csv", row.names = FALSE)
 write.csv(aut, file = "clean_data/aut.csv", row.names = FALSE)
 write.csv(fra, file = "clean_data/fra.csv", row.names = FALSE)
 
+
+#################### overview of page traffic ######################################
+
+#boxsplot
+
+ggplot(all_countries, aes(x = sex, y = average_traffic, fill = sex)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~country, scales = "free_y") +
+  labs(title = "Average Traffic per Country and Sex",
+       x = "Sex",
+       y = "Average Traffic") +
+  scale_fill_manual(values = c("male" = "blue", "female" = "pink")) +
+  theme_minimal() +
+  theme(legend.title = element_blank())
+
+
+ggplot(all_countries, aes(x = sex, y = average_traffic, color = sex)) +
+  geom_boxplot() +
+  facet_wrap(~country, scales = "free_y") +
+  labs(title = "Distribution of Average Traffic per Country and Sex",
+       x = "Sex",
+       y = "Average Traffic") +
+  scale_color_manual(values = c("male" = "blue", "female" = "pink")) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+
+ggplot(all_countries, aes(x = average_traffic, fill = sex)) +
+  geom_histogram(position = "identity", alpha = 0.7, bins = 30) +
+  facet_wrap(~country, scales = "free_y") +
+  labs(title = "Distribution of Average Traffic per Country by Sex",
+       x = "Average Traffic",
+       y = "Count") +
+  scale_fill_manual(values = c("male" = "blue", "female" = "pink")) +
+  theme_minimal() +
+  theme(legend.title = element_blank())
