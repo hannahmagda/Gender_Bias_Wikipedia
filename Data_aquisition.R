@@ -100,48 +100,52 @@ de_text_pipeline <- function(page_name) {
 # deu_alive_text <- deu_core_alive %>%
 #   mutate(plain_text = sapply(wikititle, de_text_pipeline))
 #save
-#write.csv(deu_alive_text, file = "raw_data/deu_alive_text.csv")
+#write.csv(deu_alive_text, file = "raw_data/deu_alive_text.csv", row.names = FALSE)
 
 
 # aut_alive_text <- aut_core_alive %>%
 #   mutate(plain_text = sapply(wikititle, de_text_pipeline))
-# write.csv(aut_alive_text, file = "raw_data/aut_alive_text.csv")
+# write.csv(aut_alive_text, file = "raw_data/aut_alive_text.csv", row.names = FALSE)
 
 
 # esp_alive_text <- esp_core_alive %>%
 #    mutate(plain_text = sapply(wikititle, esp_text_pipeline))
-#  write.csv(esp_alive_text, file = "raw_data/esp_alive_text.csv")
+#add ethnicity for coherence with other countries
+# esp_alive_text <- esp_alive_text %>%
+#   mutate(ethnicity = NA) %>%
+#   relocate(ethnicity, .after = 6)
+#  write.csv(esp_alive_text, file = "raw_data/esp_alive_text.csv", row.names = FALSE)
 
 
 #  gbr_alive_text <- gbr_core_alive %>%
 #    mutate(plain_text = sapply(wikititle, en_text_pipeline))
-#  write.csv(gbr_alive_text, file = "raw_data/gbr_alive_text.csv")
+#  write.csv(gbr_alive_text, file = "raw_data/gbr_alive_text.csv", row.names = FALSE)
 
 
 #  irl_alive_text <- irl_core_alive %>%
 #    mutate(plain_text = sapply(wikititle, en_text_pipeline))
-#  write.csv(irl_alive_text, file = "raw_data/irl_alive_text.csv")
+#  write.csv(irl_alive_text, file = "raw_data/irl_alive_text.csv", row.names = FALSE)
 
 #  
 # can_alive_text <- can_core_alive %>%
 #    mutate(plain_text = sapply(wikititle, en_text_pipeline))
-#  write.csv(can_alive_text, file = "raw_data/can_alive_text.csv")
+#  write.csv(can_alive_text, file = "raw_data/can_alive_text.csv", row.names = FALSE)
 #  
 #  usa_alive_text <- usa_core_alive %>%
 #    mutate(plain_text = sapply(wikititle, en_text_pipeline))
-#  write.csv(usa_alive_text, file = "raw_data/usa_alive_text.csv")
+#  write.csv(usa_alive_text, file = "raw_data/usa_alive_text.csv", row.names = FALSE)
 
 #  sco_alive_text <- sco_core_alive %>%
 #   mutate(plain_text = sapply(wikititle, en_text_pipeline))
-# write.csv(sco_alive_text, file = "raw_data/sco_alive_text.csv")
+# write.csv(sco_alive_text, file = "raw_data/sco_alive_text.csv", row.names = FALSE)
 
 
 #  cze_alive_text <- cze_core_alive %>%
 #   mutate(plain_text = sapply(wikititle, sze_text_pipeline))
-# write.csv(cze_alive_text, file = "raw_data/cze_alive_text.csv")
+# write.csv(cze_alive_text, file = "raw_data/cze_alive_text.csv", row.names = FALSE)
 
 
 # fr_alive_text <- fr_core_alive %>%
 #   mutate(plain_text = sapply(wikititle, fra_text_pipeline))
-# write.csv(fr_alive_text, file = "raw_data/fr_alive_text.csv")
+# write.csv(fr_alive_text, file = "raw_data/fr_alive_text.csv", row.names = FALSE)
 
