@@ -171,7 +171,9 @@ I am currently using the "wikititle" as varianle to use the API, which leads to 
 ```{r}
 #combine all data in one df
 
-all_countries <- rbind(deu, cze, fra, usa, sco, irl, can, aut, esp, gbr) 
+all_countries <- rbind(deu, cze, fra, usa, sco, irl, can, aut, esp, gbr)
+all_countries <- all_countries%>%
+  filter(!is.na(sex))
 
 #Plot the number of femlae/male politicians per country
 ggplot(all_countries, aes(x = sex, fill = sex)) +
@@ -265,7 +267,23 @@ ggplot(all_countries_traffic, aes(x = sex, y = average_traffic, color = sex)) +
 
 Now, let's have a look at the word counts for female and male politicians (for the further analysis, this data will be matched on confounding aspect of fame)
 ```{r}
-#aut$word_count <- sapply(aut$plain_text, count_words)
+#get word count
 
+all_countries$word_count <- sapply(all_countries$plain_text, count_words)
+
+
+avg_word_count <- all_countries %>%
+  group_by(country, sex) %>%
+  summarise(avg_word_count = mean(word_count))
+
+ggplot(avg_word_count, aes(x = sex, y = avg_word_count, fill = sex)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  facet_wrap(~ country, scales = "free_y") +
+  labs(title = "Average Word Count per Sex in Each Country",
+       x = "Sex",
+       y = "Average Word Count") +
+  scale_fill_manual(values = c("male" = "blue", "female" = "pink")) +
+  theme_minimal() +
+  theme(legend.position = "none")
 ```
 
