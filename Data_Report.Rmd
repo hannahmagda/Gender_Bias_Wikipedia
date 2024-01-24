@@ -1,8 +1,10 @@
-
-############# Data cleaning ###############################################################
-
-
-
+---
+title: "Data Report"
+author: "Hannah Schweren"
+date: "2024-01-24"
+output: html_document
+---
+```{r}
 #load necessary packages
 
 library(rvest)
@@ -10,11 +12,38 @@ library(dplyr)
 library(stringr) #für word count
 library(ggplot2)
 library(legislatoR)
+```
 
+# Data import
+After aquiring the data from the CLD containing the "wikititle", I can use this to scrape the Wikipedia articles. I subsetted the data, only focussing on politicians that are still alive (death = NA) as I consider this more relevant for my analysis.
+```{r}
 
+#import raw data 
 
+#raw data was aquired using the following code (using France as an example)
+# fr_core <-  get_core((legislature = "fra"))
+# fr_core_alive <- fr_core %>% filter(is.na(death))
 
-#import raw data
+###text aquisition german
+
+# de_text_pipeline <- function(page_name) {
+#   Sys.sleep(runif(1, 1, 2))
+#   
+#   # Check if page_name is missing
+#   if (is.na(page_name) || page_name == "") {
+#     return("No Wikipedia page name provided or missing.")
+#   }
+#   
+#   # Try fetching Wikipedia content
+#   tryCatch({
+#     wp_content <- WikipediR::page_content("de", "wikipedia", page_name = page_name)
+#     plain_text <- html_text(read_html(wp_content$parse$text$`*`))
+#     return(plain_text)
+#   }, error = function(e) {
+#     return(paste("Error fetching content for page:", page_name))
+#   })
+# }
+
 
 cze_alive_text <- read.csv("raw_data/cze_alive_text.csv")
 
@@ -36,31 +65,12 @@ can_alive_text <- read.csv("raw_data/can_alive_text.csv")
 
 aut_alive_text <- read.csv("raw_data/aut_alive_text.csv") 
 
+```
 
+# functions
+```{r}
 
-
-######### functions ##################################################################
-
-
-
-#word count
-count_words <- function(text) {
-  words <- str_extract_all(text, "\\b\\w+\\b")[[1]]
-  return(length(words))
-}
-
-
-#clean data
-
-# clean_data <- function(df) {
-#   df$plain_text <- str_remove_all(df$plain_text, "\\..*?\\{.*?\\}")
-#   df <- df %>%
-#     filter(!grepl("^Redirect to:", plain_text, ignore.case = TRUE) &
-#              !grepl("may refer to:", plain_text, ignore.case = TRUE))
-#   # Add more cleaning steps if needed
-#   
-#   return(df)
-# }
+# Necessary functions for the following data preprocessing
 
 clean_data <- function(df) {
   initial_rows <- nrow(df)
@@ -117,38 +127,44 @@ traffic_metrics <- function(traffic_data) {
   # Return the result
   return(average_traffic_per_politician)
 }
+```
 
-
-###########################################################################################
-
-
-#clean and analyse data missingness of the dataframes for each country
+# data cleaning
+```{r}
 
 cze <- clean_data(cze_alive_text)
+
 fra <- clean_data(fr_alive_text)
+
 deu <- clean_data(deu_alive_text)
+
 usa <- clean_data(usa_alive_text)
+
 gbr <- clean_data(gbr_alive_text)
+
 irl <- clean_data(irl_alive_text)
+
 sco <- clean_data(sco_alive_text)
+
 esp <- clean_data(esp_alive_text)
+
 aut <- clean_data(aut_alive_text)
+
 can <- clean_data(can_alive_text)
+```
+
+I am currently using the "wikititle" as varianle to use the API, which leads to some problems with redirects, when politicans changed their name after the creation of the CLD. Unfortunately, scraping via the "pageid" did not work. The number of redirects seems still acceptable for me. A bigger problem is raised in the british and spanish data, where a lot of missing data occurs because of the page not being found. This is due to missing "wikititle" and "pageid", which are needed to get the articles. To be discussed if this poses a problem for the further analysis of these countries' politicians.
 
 
-###########################################################################################
+# data exploration
 
-# get an overview of the data
-
-
+```{r}
 #combine all data in one df
 all_countries <- rbind(deu, cze, fra, usa, sco, irl, can, aut) #without esp, gbr 
 
 #all_countries <- rbind(deu, cze, fra, usa, sco, irl, can, aut, esp, gbr) 
 
-
-library(ggplot2)
-
+#Plot the number of femlae/male politicians per country
 ggplot(all_countries, aes(x = sex, fill = sex)) +
   geom_bar() +
   facet_wrap(~country, scales = "free_y") +
@@ -158,9 +174,13 @@ ggplot(all_countries, aes(x = sex, fill = sex)) +
   scale_fill_manual(values = c("male" = "blue", "female" = "pink")) +
   theme_minimal() +
   theme(legend.title = element_blank())
+```
+We can see, that female politicians, as it can be expected, are underrepresented in all countries. Still, it leaves us with an decent number of female politicians to be compared to the male politicians.
 
 
-################################## add traffic variable from get_traffic ###########################
+Next, we want to have a look at the average monthly number of page views (traffic). This will be used to match female and male politicians in order to make them more comparable. Using this varibale as matching variable is explained by the hypothesis that fame represents the primary confounder among the results, when it comes to the length of texts and the number of edits. As a proxy variable for fame this measure ensures that the analysis only examines comparable men and women.
+
+```{r}
 
 
 deu_traffic <- get_traffic(legislature = "deu")
@@ -185,9 +205,9 @@ aut <- left_join(aut, select(aut_average_traffic, pageid, average_traffic), by =
 
 
 # error because of NAs
-esp_traffic <- get_traffic(legislature = "esp")
-esp_average_traffic <- traffic_metrics(esp_traffic)
-esp <- left_join(esp, select(esp_average_traffic, pageid, average_traffic), by = "pageid")
+# esp_traffic <- get_traffic(legislature = "esp")
+# esp_average_traffic <- traffic_metrics(esp_traffic)
+# esp <- left_join(esp, select(esp_average_traffic, pageid, average_traffic), by = "pageid")
 
 cze_traffic <- get_traffic(legislature = "cze")
 cze_average_traffic <- traffic_metrics(cze_traffic)
@@ -208,54 +228,5 @@ usa_traffic <- bind_rows(usa_house_traffic, usa_senate_traffic)
 usa_average_traffic <- traffic_metrics(usa_traffic)
 usa <- left_join(usa, select(usa_average_traffic, pageid, average_traffic), by = "pageid")
 
+```
 
-
-################## save cleaned data ################################################
-
-write.csv(usa, file = "clean_data/usa.csv", row.names = FALSE)
-write.csv(deu, file = "clean_data/deu.csv", row.names = FALSE)
-write.csv(esp, file = "clean_data/esp.csv", row.names = FALSE)
-write.csv(gbr, file = "clean_data/gbr.csv", row.names = FALSE)
-write.csv(cze, file = "clean_data/cze.csv", row.names = FALSE)
-write.csv(sco, file = "clean_data/sco.csv", row.names = FALSE)
-write.csv(irl, file = "clean_data/irl.csv", row.names = FALSE)
-write.csv(can, file = "clean_data/can.csv", row.names = FALSE)
-write.csv(aut, file = "clean_data/aut.csv", row.names = FALSE)
-write.csv(fra, file = "clean_data/fra.csv", row.names = FALSE)
-
-
-#################### overview of page traffic ######################################
-
-#boxsplot
-
-ggplot(all_countries, aes(x = sex, y = average_traffic, fill = sex)) +
-  geom_bar(stat = "identity") +
-  facet_wrap(~country, scales = "free_y") +
-  labs(title = "Average Traffic per Country and Sex",
-       x = "Sex",
-       y = "Average Traffic") +
-  scale_fill_manual(values = c("male" = "blue", "female" = "pink")) +
-  theme_minimal() +
-  theme(legend.title = element_blank())
-
-
-ggplot(all_countries, aes(x = sex, y = average_traffic, color = sex)) +
-  geom_boxplot() +
-  facet_wrap(~country, scales = "free_y") +
-  labs(title = "Distribution of Average Traffic per Country and Sex",
-       x = "Sex",
-       y = "Average Traffic") +
-  scale_color_manual(values = c("male" = "blue", "female" = "pink")) +
-  theme_minimal() +
-  theme(legend.position = "none")
-
-
-ggplot(all_countries, aes(x = average_traffic, fill = sex)) +
-  geom_histogram(position = "identity", alpha = 0.7, bins = 30) +
-  facet_wrap(~country, scales = "free_y") +
-  labs(title = "Distribution of Average Traffic per Country by Sex",
-       x = "Average Traffic",
-       y = "Count") +
-  scale_fill_manual(values = c("male" = "blue", "female" = "pink")) +
-  theme_minimal() +
-  theme(legend.title = element_blank())
