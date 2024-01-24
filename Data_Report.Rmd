@@ -69,7 +69,6 @@ aut_alive_text <- read.csv("raw_data/aut_alive_text.csv")
 
 # functions
 ```{r}
-
 # Necessary functions for the following data preprocessing
 
 clean_data <- function(df) {
@@ -127,6 +126,17 @@ traffic_metrics <- function(traffic_data) {
   # Return the result
   return(average_traffic_per_politician)
 }
+
+
+count_words <- function(text) {
+  words <- str_extract_all(text, "\\b\\w+\\b")[[1]]
+  return(length(words))
+}
+```
+
+the function to clean the data removes unreadable parts of the html format and leaves us with human readable text of the politician's Wikipedia article. Further, it removes datapoints that weren't succesfully retreiving an artcile for reasons of redirects (name changes), missing Wikipedia pages ("wiki_title") or references pages ("may refer to...").
+
+```{r}
 ```
 
 # data cleaning
@@ -153,16 +163,15 @@ aut <- clean_data(aut_alive_text)
 can <- clean_data(can_alive_text)
 ```
 
-I am currently using the "wikititle" as varianle to use the API, which leads to some problems with redirects, when politicans changed their name after the creation of the CLD. Unfortunately, scraping via the "pageid" did not work. The number of redirects seems still acceptable for me. A bigger problem is raised in the british and spanish data, where a lot of missing data occurs because of the page not being found. This is due to missing "wikititle" and "pageid", which are needed to get the articles. To be discussed if this poses a problem for the further analysis of these countries' politicians.
+I am currently using the "wikititle" as varianle to use the API, which leads to some problems with redirects, when politicans changed their name after the creation of the CLD. Unfortunately, scraping via the "pageid" did not work. The number of redirects seems still acceptable for me. A bigger problem is raised in the british and spanish data, where a lot of missing data occurs because of the page not being found. This is due to missing "wikititle" and "pageid", which means that these politicians don't have a unique Wikipedia page or Wikidata ID. To be discussed if this poses a problem for the further analysis of these countries' politicians.
 
 
 # data exploration
 
 ```{r}
 #combine all data in one df
-all_countries <- rbind(deu, cze, fra, usa, sco, irl, can, aut) #without esp, gbr 
 
-#all_countries <- rbind(deu, cze, fra, usa, sco, irl, can, aut, esp, gbr) 
+all_countries <- rbind(deu, cze, fra, usa, sco, irl, can, aut, esp, gbr) 
 
 #Plot the number of femlae/male politicians per country
 ggplot(all_countries, aes(x = sex, fill = sex)) +
@@ -191,9 +200,10 @@ fra_traffic <- get_traffic(legislature = "fra")
 fra_average_traffic <- traffic_metrics(fra_traffic)
 fra <- left_join(fra, select(fra_average_traffic, pageid, average_traffic), by = "pageid")
 
-gbr_traffic <- get_traffic(legislature = "gbr")
-gbr_average_traffic <- traffic_metrics(gbr_traffic)
-gbr <- left_join(gbr, select(gbr_average_traffic, pageid, average_traffic), by = "pageid")
+#error
+# gbr_traffic <- get_traffic(legislature = "gbr")
+# gbr_average_traffic <- traffic_metrics(gbr_traffic)
+# gbr <- left_join(gbr, select(gbr_average_traffic, pageid, average_traffic), by = "pageid")
 
 can_traffic <- get_traffic(legislature = "can")
 can_average_traffic <- traffic_metrics(can_traffic)
@@ -227,6 +237,35 @@ usa_senate_traffic <- get_traffic(legislature = "usa_senate")
 usa_traffic <- bind_rows(usa_house_traffic, usa_senate_traffic)
 usa_average_traffic <- traffic_metrics(usa_traffic)
 usa <- left_join(usa, select(usa_average_traffic, pageid, average_traffic), by = "pageid")
+
+```
+
+
+Let's get some insights on the average traffic variable for all the countries by looking at the top pages and creating a boxplot per country and per sex 
+```{r}
+
+all_countries_traffic <- rbind(deu, cze, fra, usa, sco, irl, can, aut) #without esp, gbr 
+
+all_countries_traffic %>%
+  group_by(country) %>%
+  arrange(desc(average_traffic)) %>%
+  slice_head(n = 3)
+
+
+ggplot(all_countries_traffic, aes(x = sex, y = average_traffic, color = sex)) +
+  geom_boxplot() +
+  facet_wrap(~country, scales = "free_y") +
+  labs(title = "Distribution of Average Traffic per Country and Sex",
+       x = "Sex",
+       y = "Average Traffic") +
+  scale_color_manual(values = c("male" = "blue", "female" = "pink")) +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+Now, let's have a look at the word counts for female and male politicians (for the further analysis, this data will be matched on confounding aspect of fame)
+```{r}
+#aut$word_count <- sapply(aut$plain_text, count_words)
 
 ```
 
