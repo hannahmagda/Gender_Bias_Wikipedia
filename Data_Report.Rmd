@@ -203,9 +203,12 @@ fra_average_traffic <- traffic_metrics(fra_traffic)
 fra <- left_join(fra, select(fra_average_traffic, pageid, average_traffic), by = "pageid")
 
 #error
-# gbr_traffic <- get_traffic(legislature = "gbr")
-# gbr_average_traffic <- traffic_metrics(gbr_traffic)
-# gbr <- left_join(gbr, select(gbr_average_traffic, pageid, average_traffic), by = "pageid")
+gbr_traffic <- get_traffic(legislature = "gbr")
+gbr_average_traffic <- traffic_metrics(gbr_traffic)
+gbr$pageid <- as.character(gbr$pageid)
+gbr_average_traffic$pageid <- as.character(gbr_average_traffic$pageid)
+gbr <- left_join(gbr, select(gbr_average_traffic, pageid, average_traffic), by = "pageid")
+gbr$pageid <- as.numeric(gbr$pageid)
 
 can_traffic <- get_traffic(legislature = "can")
 can_average_traffic <- traffic_metrics(can_traffic)
@@ -216,10 +219,13 @@ aut_average_traffic <- traffic_metrics(aut_traffic)
 aut <- left_join(aut, select(aut_average_traffic, pageid, average_traffic), by = "pageid")
 
 
-# error because of NAs
-# esp_traffic <- get_traffic(legislature = "esp")
-# esp_average_traffic <- traffic_metrics(esp_traffic)
-# esp <- left_join(esp, select(esp_average_traffic, pageid, average_traffic), by = "pageid")
+# introduces NAs exclusively, need to look into that
+esp_traffic <- get_traffic(legislature = "esp")
+esp_average_traffic <- traffic_metrics(esp_traffic)
+esp$pageid <- as.character(esp$pageid)
+esp_average_traffic$pageid <- as.character(esp_average_traffic$pageid)
+esp <- left_join(esp, select(esp_average_traffic, pageid, average_traffic), by = "pageid")
+esp$pageid <- as.numeric(esp$pageid)
 
 cze_traffic <- get_traffic(legislature = "cze")
 cze_average_traffic <- traffic_metrics(cze_traffic)
@@ -246,7 +252,7 @@ usa <- left_join(usa, select(usa_average_traffic, pageid, average_traffic), by =
 Let's get some insights on the average traffic variable for all the countries by looking at the top pages and creating a boxplot per country and per sex 
 ```{r}
 
-all_countries_traffic <- rbind(deu, cze, fra, usa, sco, irl, can, aut) #without esp, gbr 
+all_countries_traffic <- rbind(deu, cze, fra, usa, sco, irl, can, aut, esp, gbr) #without esp, gbr 
 
 all_countries_traffic %>%
   group_by(country) %>%
