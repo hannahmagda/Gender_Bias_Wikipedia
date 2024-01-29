@@ -2,7 +2,9 @@
 title: "Data Report"
 author: "Hannah Schweren"
 date: "2024-01-24"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 ```{r}
 #load necessary packages
@@ -15,16 +17,17 @@ library(legislatoR)
 ```
 
 # Data import
-After aquiring the data from the CLD containing the "wikititle", I can use this to scrape the Wikipedia articles. I subsetted the data, only focussing on politicians that are still alive (death = NA) as I consider this more relevant for my analysis.
+
+After acquiring the data from the CLD containing the "wikititle", I can use this to scrape the Wikipedia articles. I subsetted the data, only focusing on politicians that are still alive (death = NA) as I consider those politicians more relevant for my analysis, instead of including also rather historical figures.
 ```{r}
 
 #import raw data 
 
-#raw data was aquired using the following code (using France as an example)
+#raw data was acquired using the following code (using France as an example)
 # fr_core <-  get_core((legislature = "fra"))
 # fr_core_alive <- fr_core %>% filter(is.na(death))
 
-###text aquisition german
+###text aquisition german (using german as example)
 
 # de_text_pipeline <- function(page_name) {
 #   Sys.sleep(runif(1, 1, 2))
@@ -83,7 +86,7 @@ clean_data <- function(df) {
   removal_reason_not_found <- sum(grepl("^(Error fetching content for page:|No Wikipedia page name provided or missing|Es wurde kein Wikipedia-Seitenname angegeben)", df$plain_text, ignore.case = TRUE))
   
   
-  # Filter rows based on specific conditions
+  # Filter rows based on condition
   df <- df %>%
     filter(!grepl("^(Redirect to:|Weiterleitung nach:|Rediriger vers:|Redirige a:|Přesměrování na:)", plain_text, ignore.case = TRUE) &
              !grepl("may refer to:|ist der Name folgender Personen:|Cette page d'homonymie répertorie différentes personnes|může být:", plain_text, ignore.case = TRUE) &
@@ -134,7 +137,7 @@ count_words <- function(text) {
 }
 ```
 
-the function to clean the data removes unreadable parts of the html format and leaves us with human readable text of the politician's Wikipedia article. Further, it removes datapoints that weren't succesfully retreiving an artcile for reasons of redirects (name changes), missing Wikipedia pages ("wiki_title") or references pages ("may refer to...").
+the function to clean the data removes unreadable parts of the html format and leaves us with human readable text of the politician's Wikipedia article. Further, it removes datapoints that didn't succesfully retreive an article for reasons of redirects (name changes), missing Wikipedia pages ( no "wiki_title") or references pages ("may refer to...").
 
 ```{r}
 ```
@@ -163,7 +166,7 @@ aut <- clean_data(aut_alive_text)
 can <- clean_data(can_alive_text)
 ```
 
-I am currently using the "wikititle" as varianle to use the API, which leads to some problems with redirects, when politicans changed their name after the creation of the CLD. Unfortunately, scraping via the "pageid" did not work. The number of redirects seems still acceptable for me. A bigger problem is raised in the british and spanish data, where a lot of missing data occurs because of the page not being found. This is due to missing "wikititle" and "pageid", which means that these politicians don't have a unique Wikipedia page or Wikidata ID. To be discussed if this poses a problem for the further analysis of these countries' politicians.
+I am currently using the "wikititle" as variable to use the API, which leads to some problems with redirects, when politicians changed their name after the creation of the CLD. Unfortunately, scraping via the "pageid" did not work out. The number of redirects seems still acceptable for me. A bigger problem is raised in the british and spanish data, where a lot of missing data occurs because of the page not being found. This is due to missing "wikititle" and "pageid", which means that these politicians don't have a unique Wikipedia page or Wikidata ID. To be discussed if this poses a problem for the further analysis of these countries' politicians.
 
 
 # data exploration
@@ -174,8 +177,26 @@ I am currently using the "wikititle" as varianle to use the API, which leads to 
 all_countries <- rbind(deu, cze, fra, usa, sco, irl, can, aut, esp, gbr)
 all_countries <- all_countries%>%
   filter(!is.na(sex))
+```
 
-#Plot the number of femlae/male politicians per country
+
+First, let's have a look at the dataset, containing all countries and see how it is setup. 
+
+```{r}
+head(all_countries)
+```
+```{r}
+summary(all_countries)
+```
+```{r}
+str(all_countries)
+```
+
+
+
+```{r}
+
+#Plot the number of female/male politicians per country
 ggplot(all_countries, aes(x = sex, fill = sex)) +
   geom_bar() +
   facet_wrap(~country, scales = "free_y") +
@@ -186,10 +207,10 @@ ggplot(all_countries, aes(x = sex, fill = sex)) +
   theme_minimal() +
   theme(legend.title = element_blank())
 ```
-We can see, that female politicians, as it can be expected, are underrepresented in all countries. Still, it leaves us with an decent number of female politicians to be compared to the male politicians.
+We can see, that female politicians, as it can be expected, are underrepresented in all countries. Still, it leaves us with a decent number of female politicians to be compared to the male politicians.
 
 
-Next, we want to have a look at the average monthly number of page views (traffic). This will be used to match female and male politicians in order to make them more comparable. Using this varibale as matching variable is explained by the hypothesis that fame represents the primary confounder among the results, when it comes to the length of texts and the number of edits. As a proxy variable for fame this measure ensures that the analysis only examines comparable men and women.
+Next, we want to have a look at the average monthly number of page views (traffic). This will be used to match female and male politicians in order to make them more comparable. Using this variable as matching variable is due to the hypothesis that "fame" represents the primary confounder variable, when it comes to the length of texts and the number of edits. As a proxy variable for fame this measure ensures that the analysis only examines comparable men and women.
 
 ```{r}
 
@@ -253,13 +274,18 @@ Let's get some insights on the average traffic variable for all the countries by
 ```{r}
 
 all_countries_traffic <- rbind(deu, cze, fra, usa, sco, irl, can, aut, esp, gbr) #without esp, gbr 
+all_countries_traffic <- all_countries_traffic%>%
+  filter(!is.na(sex))
+
 
 all_countries_traffic %>%
   group_by(country) %>%
   arrange(desc(average_traffic)) %>%
   slice_head(n = 3)
+```
 
-
+Let's plot the word count per gender/country to get an overview. i visualized this using a boxplot, the second one restricted the y axis, excluding some ectreme outliers, so that we can better see the distribution of the data.
+```{r}
 ggplot(all_countries_traffic, aes(x = sex, y = average_traffic, color = sex)) +
   geom_boxplot() +
   facet_wrap(~country, scales = "free_y") +
@@ -269,6 +295,32 @@ ggplot(all_countries_traffic, aes(x = sex, y = average_traffic, color = sex)) +
   scale_color_manual(values = c("male" = "blue", "female" = "pink")) +
   theme_minimal() +
   theme(legend.position = "none")
+
+
+#zoom in, focusing on lower quartiles, ignoring outliers
+ggplot(all_countries_traffic, aes(x = sex, y = average_traffic, color = sex)) +
+  geom_boxplot() +
+  facet_wrap(~country, scales = "free_y") +
+  labs(title = "Distribution of Average Traffic per Country and Sex",
+       x = "Sex",
+       y = "Average Traffic") +
+  scale_color_manual(values = c("male" = "blue", "female" = "pink")) +
+  theme_minimal() +
+  theme(legend.position = "none") +
+  ylim(1, 1500)  # Adjust the y-axis limits
+
+
+
+# ggplot(all_countries_traffic, aes(x = log(average_traffic), color = sex)) +
+#   geom_density(size = 1) +
+#   facet_wrap(~ country, scales = "free_y") +
+#   labs(title = "Density of Average Traffic per Country and Sex",
+#        x = "Average Traffic",
+#        y = "Density",
+#        color = "Sex") +
+#   scale_color_manual(values = c("pink", "blue")) +
+#   theme_minimal()
+
 ```
 
 Now, let's have a look at the word counts for female and male politicians (for the further analysis, this data will be matched on confounding aspect of fame)
