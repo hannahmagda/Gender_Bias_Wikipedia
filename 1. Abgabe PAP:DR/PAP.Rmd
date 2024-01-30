@@ -14,17 +14,19 @@ bibliography: bibliography.bib
 # 1. Summary: 
 
 The project aims to measure gender bias in politicians' Wikipedia biographies on an international scale. Wikipedia ranks as the seventh most visited website worldwide in 2022 ([statista](https://www.statista.com/statistics/1201880/most-visited-websites-worldwide/)), with over 4 billion unique global visitors per month ([statista](https://www.statista.com/statistics/1259907/wikipedia-website-traffic/)). Many individuals rely on it to quickly access information about celebrities, artists, and politicians. Therefore, it is crucial for Wikipedia's content to maintain neutrality and avoid reinforcing societal biases.
-One could argue that this importance is heightened within the subgroup of politicians, as Wikipedia's representation of political figures influences citizens seeking information before elections in democratic processes. Previous research has revealed a noticeable lexical gender bias in Wikipedia biographies. I specifically focus on politicians' biographies to investigate whether general findings can be applied to this specific subgroup. Additionally, much of the existing research concentrates on English articles, whereas I analyze all politicians' texts in their respective national languages. This approach allows me to compare the extent of gender bias across different countries.
+One could argue that this importance is heightened within the subgroup of politicians, as Wikipedia's representation of political figures influences citizens seeking information before elections in democratic processes. Previous research has revealed a noticeable lexical gender bias in Wikipedia biographies. I specifically focus on politicians' biographies to investigate whether general findings can be applied to this specific subgroup. Additionally, much of the existing research concentrates on English articles, whereas I analyze all politicians' texts in their respective national languages. This approach potentially allows to compare the extent of gender bias across different countries.
 My research questions are as follows:
 
 RQ1: Can the results of previous research on lexical gender bias in biographies be applied to politicians' biographies?
-depending on further capacity, a second question will be examined:
+Depending on capacity, a second question will be examined:
 RQ2: How do the results vary in an international context?
 
-I plan to address these questions using available data from the "Comparative Legislator Database," [@gobel_comparative_2022]which includes information about politicians, their Wikipedia names, and additional details such as traffic and edits from nine countries ('aut,' 'can,' 'cze,' 'esp,' 'fra,' 'deu,' 'irl,' 'sco,' 'gbr,' 'usa_house,' or 'usa_senate'). Initially, I will retrieve all articles in their original language and then assess the extent of gender bias in the articles, first using simple descriptive indicators and secondly either employing mutual pointwise information or a machine learning approach.
+I plan to address these questions using available data from the "Comparative Legislator Database," [@gobel_comparative_2022] which includes information about politicians, their Wikipedia names, and additional details such as traffic and edits from nine countries ('aut,' 'can,' 'cze,' 'esp,' 'fra,' 'deu,' 'irl,' 'sco,' 'gbr,' 'usa_house,' or 'usa_senate'). Initially, I will retrieve all articles in their original language and then assess the extent of gender bias in the articles, first using simple descriptive indicators and secondly either employing mutual pointwise information or a machine learning approach. The results will be contextualized using existing research.
 
 
 # 2. Motivation and background: 
+
+**“Representation of the world, like the world itself, is the work of men; they describe it from their own point of view, which they confuse with absolute truth.”** – Simone de Beauvoir
 
 This research question is particularly intriguing to me, as I've been interested in gender equality topics for several years now. During my studies, I've delved into the concept of the child penalty and worked on addressing the gender care gap in my student job. These experiences have motivated me to explore gender-related inequalities further.
 In the scope of my master's thesis at Hertie School, I aim to delve deeper into such issues in the online world and utilize the techniques I've acquired during my studies. Thus, this research topic is very exciting for me, and I'm curious to dive deeper into gender inequalities in the political area.
@@ -35,7 +37,11 @@ I expect to acquire skills in the field of text data processing, which will be a
 
 # 3. Introduction: 
 
-The area of research focussing on gender bias in wikipedia has developed in the last few years and is mainly focussed on English articles and general biographies (not focussing on one specific category of people). The following 3 papers are of a main interest, when dealing with lexical gender bias on wikipedia:
+Gender bias can be defined as "the term used to describe systematic biasing effects that result from gender-related stereotyping and prejudice." [@reference] The rise of gender studies and research about those systematic effects revealed the existence of various such biases against women. There is studies on gender bias in academia at the workplace, in medicine, sports, in politics - and this list could go on. While some of those biases are rather easy to detect, the field of wikipedia,as an encyclopedia is particularly interesting, as it feigns objectivity. Wikipedia is an online source, produced and revised by volunteers globally. Thus, it is not far fetched to expect societal biases reflected in its articles, often this might be unconscious, as Individuals often engage in discriminatory behaviors without conscious intent, acting upon internalized schemas [reference Implicit bias in academia]. 
+
+There is a growing body of research on gender bias in politics, as the proportion of male to female politicians is pretty uneven and a lot of countries try to attract female talent - but until today the follwoing statement from [reference Chiao JY, Bowman NE, Gill H (2008) The Political Gender Gap] holds: "Throughout human history, a disproportionate degree of political power around the world has been held by men." Thus, it is important to find sources and ways to reduce gender bias, starting by detecting its existence.
+
+The area of research focusing on gender bias in wikipedia has developed in the last few years and is mainly focussed on English articles and general biographies (not focusing on one specific category of people). The following 3 papers are of a main interest, when dealing with lexical gender bias on wikipedia:
 
 1. "Women through the glass ceiling: gender asymmetries in Wikipedia"
 [@wagner_women_2016] aim at assessing potential gender inequalities in English Wikipedia articles along different dimensions using the The DBpedia dataset. Adopting an open vocabulary approach, they consider n-grams with \( n \leq 2 \) 2 to encompass multi-word concepts. The analysis involves exploring the association between the top 200 n-grams for each gender and the four topics (gender, relationship, family, or other), with Pointwise Mutual Information used for ranking the n-grams for men and women. Among other findings, they achieve to show that family-, gender-, and relationship-related topics are more present in biographies about women. Which is a clear indicator for a lexical bias.
@@ -50,20 +56,26 @@ The area of research focussing on gender bias in wikipedia has developed in the 
 
 # 4. Research question: 
 
-My Research Questions are the following: 
-
-QR1: Can results of previous research concerning lexical gender bias in biographies be applied to the subgroup of politican's biographies?
-
-RQ2: How do the results vary in the international context?
+The main research question is the following:
+QR1: Can results of previous research concerning lexical gender bias in biographies be applied to the subgroup of (german) politican's biographies?
+Potentially, the international perspective will be elaborated with a second research question:
+RQ2: Do results of different countries reflect the real world situation of gender inequalities in those countries?
 
 The approach reflects previous research on this topic, specifying the examined group, focussing on politicians, instead of generic biographies on wikipedia. I want to see if the background of being a politician maybe changes the extent of gender bias. 
 
+**Hypotheses**
+
+H1: The findings from previous research about comprehensive biographies can be applied to politicians. As demonstrated in the Finkbeiner test (@reference), women's biographies often emphasize their gender, whereas descriptions of men are considered neutral.
 
 # 5. Data and methods: 
 
 **Data:**
 
-I am using the data of the Comparative legislature Database (Reference), containing information (including sex, wikititle, traffic, edits etc.) on more than 67,000 contemporary and historical legislators. To gather the according wikipedia articles of the politicians, I use the wikipdeiR package. I use a subset of politicians that don't have a date of death recorded in the data and thus are contemporarian politicians, as I am rather interested in the gender bias towards politicians that are known as acting politicians, not as historical figures. The data includes 9 available countries: Canada, Germany, France, Czech Republic, USA, Ireland, Scotland, Austria and Spain.
+I am using the data of the Comparative legislature Database (Reference), containing information (including sex, wikititle, traffic, edits etc.) on more than 67,000 contemporary and historical legislators. To gather the according wikipedia articles of the politicians, I use the wikipediR package. I use a subset of politicians that don't have a date of death recorded in the data and thus are contemporarian politicians, as I am rather interested in the gender bias towards politicians that are known as (acting) politicians, not as historical figures. The data includes 9 available countries: Canada, Germany, France, Czech Republic, USA, Ireland, Scotland, Austria and Spain.
+
+![](Overview_cld.png). 
+
+Figure 1: Structure of the database [@gobel_comparative_2022]
 
 **Method:**
 
