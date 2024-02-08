@@ -41,9 +41,9 @@ I expect to acquire skills in the field of text data processing, which will be a
 
 # 3. Introduction
 
-Gender bias can be defined as "the term used to describe systematic biasing effects that result from gender-related stereotyping and prejudice." [@leibniz_association_gender_2023] The rise of gender studies and research about those systematic effects revealed the existence of various such biases against women. There is studies on gender bias in academia [@leagur_of_european_research_universities_implicit_2018] at the workplace [@heilman_gender_2012], in medicine [@mendelsohn_sex_1994], sports [@eastman_sportscasting_2000], in politics[@chiao_political_2008] - and this list could go on. Research has for example shown variations in the adjectives used to describe women compared to those used for men across various contexts [@trix_exploring_2003]. While sometimes those biases are rather easy to detect, the field of Wikipedia,as an encyclopedia is particularly interesting, as it feigns objectivity. Wikipedia is an online source, produced and revised by volunteers globally. Thus, it is not far fetched to expect societal biases reflected in its articles, often this might be unconscious, as individuals often engage in discriminatory behaviors without conscious intent, acting upon internalized schemas [@leagur_of_european_research_universities_implicit_2018]. Furter, research has shown that an overwhelming majority of editors are male: Less than 13% of Wikipedia contributors are female. [@antin_gender_2011]
+Gender bias can be defined as "the term used to describe systematic biasing effects that result from gender-related stereotyping and prejudice." [@leibniz_association_gender_2023] The rise of gender studies and research about those systematic effects revealed the existence of various such biases against women. There is studies on gender bias in academia [@leagur_of_european_research_universities_implicit_2018] at the workplace [@heilman_gender_2012], in medicine [@mendelsohn_sex_1994], sports [@eastman_sportscasting_2000], in politics [@chiao_political_2008] - and this list could go on. Research has for example shown variations in the adjectives used to describe women compared to those used for men across various contexts [@trix_exploring_2003]. While sometimes those biases are rather easy to detect, the field of Wikipedia,as an encyclopedia is particularly interesting, as it feigns objectivity. Wikipedia is an online source, produced and revised by volunteers globally. Thus, it is not far fetched to expect societal biases reflected in its articles, often this might be unconscious, as individuals often engage in discriminatory behaviors without conscious intent, acting upon internalized schemas [@leagur_of_european_research_universities_implicit_2018]. Furter, research has shown that an overwhelming majority of editors are male: Less than 13% of Wikipedia contributors are female. [@antin_gender_2011]
 
-"Throughout human history, a disproportionate degree of political power around the world has been held by men." Thus, it is important to find sources and ways to reduce gender bias, starting by detecting its existence."[@chiao_political_2008, p.1]
+"Throughout human history, a disproportionate degree of political power around the world has been held by men." [@chiao_political_2008, p.1] Thus, it is important to find sources and ways to reduce gender bias, starting by detecting its existence.
 There is a growing body of research on gender bias in politics, as the proportion of male to female politicians is often very uneven [@kumar_participation_2014]. Even though this presence of gender gaps in private and public leadership positions has long been identified and efforts have been taken to change this, the following statement from [@chiao_political_2008] still holds to this day.
 
 The area of research focusing on gender bias in wikipedia has developed in the last few years and is mainly focussed on English articles and general biographies (not focusing on one specific category of people). The following 3 papers are of a main interest, when dealing with lexical gender bias on wikipedia:
@@ -74,7 +74,7 @@ The approach reflects previous research on this topic, specifying the examined g
 
 **Hypotheses**
 
-H1: The findings from previous research about all categories of biographies can be applied to politicians. As demonstrated in the Finkbeiner test (@finkbeiner_what_2013), women's biographies are expected to emphasize their gender, whereas descriptions of men are presented as neutral.
+H1: The findings from previous research about all categories of biographies can be applied to politicians. As demonstrated in the Finkbeiner test [@finkbeiner_what_2013], women's biographies are expected to emphasize their gender, whereas descriptions of men are presented as neutral.
 
 # 5. Data and methods
 
@@ -90,11 +90,11 @@ Figure 1: Structure of the database [@gobel_comparative_2022, p.7]
 
 **Decriptive analyis**
 
-The start of the analysis will be a descriptive analysis of the available data. Figures like the length of the articles have already been used in previous research to get an impression of possible bias (@graells-garrido_first_2015). For my analysis, I plan to use the average monthly page traffic as a matching variable to only include comparable female and male politicians. This serves the purpose of reducing the influence of possible confounders - I expect the biggest confounder in this case to be the fame of certain politicians. Monthly page traffic seems like a good proxy to reduce this confounding factor. Further, I want to compare not only the article length but also the number of page edits of the female and male politicians.
+The start of the analysis will be a descriptive analysis of the available data. Figures like the length of the articles have already been used in previous research to get an impression of possible bias (@graells-garrido_first_2015). For my analysis, I plan to use the average monthly page traffic as a matching variable to only include comparable female and male politicians. This serves the purpose of reducing the influence of possible confounders - I expect the biggest confounder in this case to be the popularity of certain politicians. Monthly page traffic seems like a good proxy to reduce this confounding factor. Further, I want to compare not only the article length but also the number of page edits of the female and male politicians.
 
 **Further analysis**
 
-The descriptive analysis will be followed by a  technique to detect gender bias in the text, focusing on the kind of bias that is pretty common based on previous research (@wagner_women_2016), namely lexical bias. Lexical bias means that language is used differently when talking about men/women [@lakoff_language_1973]. I want to propose two possible methods to analyse the extend of lexical bias in politicians biographies. Depending on the complexity of the method, a focus on 1 or few countries may be advantageous (e.g. focusing on German politicians and or compare to 1/few other countries) as the methods have to be applied to each country individually.
+The descriptive analysis will be followed by a  technique to detect gender bias in the text, focusing on the kind of bias that is pretty common based on previous research (@wagner_women_2016), namely lexical bias. Lexical bias means that language is used differently when talking about men/women [@lakoff_language_1973]. I want to propose two possible methods to analyse the extend of lexical bias in politicians biographies. Depending on the complexity of the method, a focus on one or few countries may be advantageous (e.g. focusing on German politicians and or compare to one/few other countries) as the methods have to be applied to each country individually.
 
 **Option 1**
 
@@ -104,7 +104,8 @@ Previous research has often focused on the Wikipedia introduction text to detect
 
 - First step of this approach is to tokenize the wikipedia articles and to create the vocabulary, containing “gender”, “word” and “Number of biographies” containing this word. 
 - Next, stopwords are removed, and only words that are present in both genders are included. 
-- After creating a dataframe that contains all common words of female and male politicians, with the respective frequency for men/women, the PMI scores for the vocabulary are calculated. PMI is expressed as: \( \text{PMI}(c, w) = \log \)
+- After creating a dataframe that contains all common words of female and male politicians, with the respective frequency for men/women, the PMI scores for the vocabulary are calculated. PMI is expressed as: \( \text{PMI}(c, w) = \log \frac{p(c, w)}{p(c)p(w)}
+\)
 C represents the gender and w represents the word. 
 - Further, the PMI score needs to be normalized for further analysis. 
 - PMI gives extra weight to words with very low frequencies thus I need to establish a threshold for words to be included. PMI helps identify words that tend to occur together with a specific gender term more frequently than expected by chance - so, higher PMI values indicate a stronger association between a word and a specific gender. 
@@ -125,7 +126,7 @@ The second possible method is a machine learning approach as applied by [@wagner
 **International analysis**
 
 As I am particularly interested in the German case, as a German speaker and having gained experiences in gender inequalities in Germany, I will firstly apply the respective methods to the German language.
-If there is enough capacity to apply the method to several countries, I will continue with English and french speaking countries (as I speak those langauges and I am able to annotade words myself). An alternative would be to group all countries with the same language (e.g. Germany and Austria) but as I ideally aim to compare my results on a country level, I decided against this option.
+If there is enough capacity to apply the method to several countries, I will continue with English and French speaking countries (as I speak those languages and I am able to annotade words myself). An alternative would be to group all countries with the same language (e.g. Germany and Austria) but as I ideally aim to compare my results on a country level, I decided against this option.
 If I can apply my method to several countries, I aim at comparing the country level of gender equality, measured by the Gender Inequality Index of the World Economic Form (WMF) [@world_economic_forum_global_2023] with the results of my lexical bias analyis to see, if there is a connection. This way of comparing bias in the offline world and the bias on Wikipedia has been conducted by [@wagner_its_2021] before.
 
 
