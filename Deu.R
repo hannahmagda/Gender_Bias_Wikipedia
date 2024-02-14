@@ -1,5 +1,5 @@
 #####data acquisition Germany
-
+setwd("~/Documents/Zukunft/Master/drittes semester/thesis/Code/Thesis")
 #load necessary packages
 library(legislatoR)
 library(WikipediR)
@@ -7,11 +7,27 @@ library(rvest)
 library(dplyr)
 library(stringr) #für word count
 library(ggplot2)
+library(tm)
+library(MatchIt)
+
+
+#save
+# write.csv(deu_html_text, file = "raw_data/deu_html_text.csv", row.names = FALSE)
+#write.csv(deu_political, file = "raw_data/deu_political.csv", row.names = FALSE)
+#write.csv(deu_traffic, file = "raw_data/deu_traffic.csv", row.names = FALSE)
 
 
 
-deu_core <- get_core(legislature = "deu")
-deu_political <- get_political(legislature = "deu")
+# deu_core <- get_core(legislature = "deu")
+# deu_political <- get_political(legislature = "deu")
+# deu_traffic <- get_traffic(legislature = "deu")
+
+
+deu_political <- read.csv("raw_data/deu_political.csv")
+deu_traffic <- read.csv("raw_data/deu_traffic.csv")
+
+deu_text <- read.csv("raw_data/deu_text.csv")
+deu_html_text <- read.csv("raw_data/deu_html_text.csv")
 
 #doppelte sessions: nur älteste behalten und service aufaddieren
 deu_political <- deu_political %>%
@@ -23,8 +39,11 @@ deu_political <- deu_political %>%
   ungroup()
 
 
+#sum of traffic data per politician
+total_traffic_per_politician <- deu_traffic %>%
+  group_by(pageid) %>%
+  summarise(total_traffic = sum(traffic))
 
-deu_core <- left_join(deu_core, select(deu_political, pageid, session, party, total_service), by = "pageid")
 
 
 ##function text acquisition
@@ -68,16 +87,25 @@ de_html_pipeline <- function(page_name) {
 
 
 
-deu_text <- deu_core %>%
-  mutate(plain_text = sapply(wikititle, de_text_pipeline))
 
-deu_html_text <- deu_core %>%
-  mutate(text = sapply(wikititle, de_html_pipeline))
 
-# THIS WORKS
+
+# deu_text <- deu_core %>%
+#   mutate(plain_text = sapply(wikititle, de_text_pipeline))
+# 
+# deu_html_text <- deu_core %>%
+#   mutate(text = sapply(wikititle, de_html_pipeline))
+
+deu_political$pageid <- as.integer(deu_political$pageid)
+deu_text <- left_join(deu_text, select(deu_political, pageid, session, party, total_service), by = "pageid")
+total_traffic_per_politician$pageid <- as.integer(total_traffic_per_politician$pageid)
+deu_text <- left_join(deu_text, select(total_traffic_per_politician, pageid, total_traffic), by = "pageid")
+
+
+# THIS WORKS aber nur für dene rsten absatz
 # 
 
-parsed_html <- read_html(html_text)
+#parsed_html <- read_html(html_text)
 
 # # Extracting section titles containing the word "Leben"
 # section_titles <- parsed_html %>%
@@ -104,21 +132,21 @@ parsed_html <- read_html(html_text)
 
 
 #das gibt zu viel info, auch andere sections
-df <- head(deu_html_text,10)
-# 
+# df <- head(deu_html_text,10)
+# # 
 # extract_text_from_html <- function(df, html_column_name, new_column_name) {
 #   # Function to extract text from HTML content
 #   extract_text <- function(html_text) {
 #     parsed_html <- read_html(html_text)
-#     
+# 
 #     # Extracting section titles containing the word "Leben"
 #     section_titles <- parsed_html %>%
 #       html_nodes(xpath = "//span[contains(@class, 'mw-headline') and contains(text(), 'Leben')]") %>%
 #       html_text()
-#     
+# 
 #     # Extracting section texts for sections containing the word "Leben"
 #     section_texts <- list()
-#     
+# 
 #     for (title in section_titles) {
 #       current_text <- parsed_html %>%
 #         html_nodes(xpath = paste("//span[@class='mw-headline' and text()='", title, "']/following::p", sep = "")) %>%
@@ -128,43 +156,31 @@ df <- head(deu_html_text,10)
 #       current_text <- gsub(", $", "", current_text)
 #       section_texts[[title]] <- current_text
 #     }
-#     
+# 
 #     # Concatenate the section texts
 #     concatenated_text <- unlist(section_texts)
 #     return(paste(concatenated_text, collapse = "\n"))
 #   }
-#   
+# 
 #   # Apply the extract_text function to each row of the data frame
 #   df[[new_column_name]] <- sapply(df[[html_column_name]], extract_text)
-#   
+# 
 #   return(df)
 # }
-# 
-# # Example usage:
-# # Assuming df is your data frame, "html_content" is the column containing HTML text,
-# # and you want to create a new column named "extracted_text" to store the extracted text
-# df <- extract_text_from_html(df, "text", "extracted_text")
 
-html_text <- '<div class="mw-content-ltr mw-parser-output" lang="de" dir="ltr"><p><b>Adelheid D. Tröscher</b> (* <a href="/wiki/16._Februar" title="16. Februar">16. Februar</a> <a href="/wiki/1939" title="1939">1939</a> in <a href="/wiki/Berlin" title="Berlin">Berlin</a>) ist eine deutsche Pädagogin und Politikerin (<a href="/wiki/Sozialdemokratische_Partei_Deutschlands" title="Sozialdemokratische Partei Deutschlands">SPD</a>). Sie war von 1994 bis 2002 <a href="/wiki/Mitglied_des_Deutschen_Bundestages" title="Mitglied des Deutschen Bundestages">Mitglied des Deutschen Bundestages</a>. </p> ...' # Your HTML text here
 
-parsed_html <- read_html(html_text)
+# Example usage:
+# Assuming df is your data frame, "html_content" is the column containing HTML text,
+# and you want to create a new column named "extracted_text" to store the extracted text
+#df <- extract_text_from_html(df, "text", "extracted_text")
 
-p_xpath <- "//h2[1]/following-sibling::p[following-sibling::h2[1][preceding-sibling::h2[1]]]"
 
-# Die <p>-Elemente auswählen
-paragraphs <- html_nodes(parsed_html, xpath = p_xpath)
 
-# Den Textinhalt der <p>-Elemente extrahieren
-if (length(paragraphs) > 0) {
-  paragraph_texts <- html_text(paragraphs)
-  print("Textinhalt der <p>-Elemente unter dem ersten <h2>:")
-  print(paragraph_texts)
-} else {
-  print("Keine <p>-Elemente gefunden.")
-}
 
-#save
-write.csv(deu_text, file = "raw_data/deu_text.csv", row.names = FALSE)
+
+
+
+
 
 
 
@@ -207,6 +223,24 @@ clean_data <- function(df) {
 deu <- clean_data(deu_text)
 
 deu$birthyear <- substr(deu$birth, 1, 4)
+
+deu <- deu %>%
+  mutate(service_group = case_when(
+    total_service <= quantile(total_service, 0.25, na.rm = TRUE) ~ "Group 1",
+    total_service <= quantile(total_service, 0.5, na.rm = TRUE) ~ "Group 2",
+    total_service <= quantile(total_service, 0.75, na.rm = TRUE) ~ "Group 3",
+    TRUE ~ "Group 4"
+  ))
+
+deu <- deu %>%
+  mutate(traffic_group = case_when(
+    total_traffic <= quantile(total_traffic, 0.25, na.rm = TRUE) ~ "Group 1",
+    total_traffic <= quantile(total_traffic, 0.5, na.rm = TRUE) ~ "Group 2",
+    total_traffic <= quantile(total_traffic, 0.75, na.rm = TRUE) ~ "Group 3",
+    TRUE ~ "Group 4"
+  ))
+
+
 deu <- deu[complete.cases(deu$sex), ]
 
 
@@ -224,7 +258,6 @@ deu$ethnicity[is.na(deu$ethnicity)] <- "Unknown"
 #binary
 deu$sex <- ifelse(deu$sex == "male", 0, 1)
 
-library(MatchIt)
 
 missing_share <- colMeans(is.na(deu))
 print(missing_share)
@@ -234,7 +267,7 @@ print(missing_share)
 #sex, indigeneity status, high school completion, marital status (partnered or not),
 #region of residence (major cities, inner regional, outer regional), language background (English speaking Yes/No) 
 #and risky alcohol drinking (Yes/No)
-match_obj <- matchit(sex ~ birthyear + religion + ethnicity,
+match_obj <- matchit(sex ~ birthyear + religion + ethnicity + session + service_group + traffic_group,
                      data = deu, method = "nearest", distance ="glm",
                      ratio = 1,
                      replace = FALSE)
@@ -256,7 +289,7 @@ female_corpus <- tm_map(female_corpus, stripWhitespace)
 female_corpus <- tm_map(female_corpus, stemDocument)
 
 
-inspect(corpus[1:5])
+inspect(female_corpus[1:5])
 
 female_tdm <- TermDocumentMatrix(female_corpus)
 female_m <- as.matrix(female_tdm)
@@ -288,3 +321,10 @@ rownames(male_word_counts) <- NULL
 
 male_vocabulary <- data.frame(word = names(male_word_counts), count = male_word_counts)
 
+
+# we only want to keep words hat are present in both vocabularies so that the pmi analysis makes sense
+common_words <- intersect(female_vocabulary$word, male_vocabulary$word)
+
+female_vocabulary_common <- female_vocabulary[female_vocabulary$word %in% common_words, ]
+male_vocabulary_common <- male_vocabulary[male_vocabulary$word %in% common_words, ]
+# 
