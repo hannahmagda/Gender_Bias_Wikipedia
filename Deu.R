@@ -102,80 +102,6 @@ total_traffic_per_politician$pageid <- as.integer(total_traffic_per_politician$p
 deu_text <- left_join(deu_text, select(total_traffic_per_politician, pageid, total_traffic), by = "pageid")
 
 
-# THIS WORKS aber nur für dene rsten absatz
-# 
-
-#parsed_html <- read_html(html_text)
-
-# # Extracting section titles containing the word "Leben"
-# section_titles <- parsed_html %>%
-#   html_nodes(xpath = "//span[contains(@class, 'mw-headline') and contains(text(), 'Leben')]") %>%
-#   html_text()
-# 
-# # Extracting section texts for sections containing the word "Leben"
-# section_texts <- list()
-# 
-# for (title in section_titles) {
-#   current_text <- parsed_html %>%
-#     html_nodes(xpath = paste("//span[@class='mw-headline' and text()='", title, "']/following::p", sep = "")) %>%
-#     html_text() %>%
-#     toString() # Convert to character
-#   # Remove comma between paragraphs
-#   current_text <- gsub(", $", "", current_text)
-#   section_texts[[title]] <- current_text
-# }
-# 
-# # Printing or storing the results
-# for (title in section_titles) {
-#   cat(section_texts[[title]], "\n\n")
-# }
-
-
-#das gibt zu viel info, auch andere sections
-# df <- head(deu_html_text,10)
-# # 
-# extract_text_from_html <- function(df, html_column_name, new_column_name) {
-#   # Function to extract text from HTML content
-#   extract_text <- function(html_text) {
-#     parsed_html <- read_html(html_text)
-# 
-#     # Extracting section titles containing the word "Leben"
-#     section_titles <- parsed_html %>%
-#       html_nodes(xpath = "//span[contains(@class, 'mw-headline') and contains(text(), 'Leben')]") %>%
-#       html_text()
-# 
-#     # Extracting section texts for sections containing the word "Leben"
-#     section_texts <- list()
-# 
-#     for (title in section_titles) {
-#       current_text <- parsed_html %>%
-#         html_nodes(xpath = paste("//span[@class='mw-headline' and text()='", title, "']/following::p", sep = "")) %>%
-#         html_text() %>%
-#         toString() # Convert to character
-#       # Remove comma between paragraphs
-#       current_text <- gsub(", $", "", current_text)
-#       section_texts[[title]] <- current_text
-#     }
-# 
-#     # Concatenate the section texts
-#     concatenated_text <- unlist(section_texts)
-#     return(paste(concatenated_text, collapse = "\n"))
-#   }
-# 
-#   # Apply the extract_text function to each row of the data frame
-#   df[[new_column_name]] <- sapply(df[[html_column_name]], extract_text)
-# 
-#   return(df)
-# }
-
-
-# Example usage:
-# Assuming df is your data frame, "html_content" is the column containing HTML text,
-# and you want to create a new column named "extracted_text" to store the extracted text
-#df <- extract_text_from_html(df, "text", "extracted_text")
-
-
-
 
 
 
@@ -188,19 +114,19 @@ clean_data <- function(df) {
   initial_rows <- nrow(df)
   
   # Remove CSS-like structures
-  df$plain_text <- str_remove_all(df$plain_text, "\\..*?\\{.*?\\}")
-  
+  #df$plain_text <- str_remove_all(df$plain_text, "\\..*?\\{.*?\\}")
+
   # Initialize counters for removal reasons
-  removal_reason_redirect <- sum(grepl("^(Redirect to:|Weiterleitung nach:|Rediriger vers:|Redirige a:|Přesměrování na:)", df$plain_text, ignore.case = TRUE))
-  removal_reason_refering_page <- sum(grepl("may refer to:|ist der Name folgender Personen:|Cette page d'homonymie répertorie différentes personnes|může být:", df$plain_text, ignore.case = TRUE))
-  removal_reason_not_found <- sum(grepl("^(Error fetching content for page:|No Wikipedia page name provided or missing|Es wurde kein Wikipedia-Seitenname angegeben)", df$plain_text, ignore.case = TRUE))
+  removal_reason_redirect <- sum(grepl("^(Redirect to:|Weiterleitung nach:|Rediriger vers:|Redirige a:|Přesměrování na:)", df$text, ignore.case = TRUE))
+  removal_reason_refering_page <- sum(grepl("may refer to:|ist der Name folgender Personen:|Cette page d'homonymie répertorie différentes personnes|může být:", df$text, ignore.case = TRUE))
+  removal_reason_not_found <- sum(grepl("^(Error fetching content for page:|No Wikipedia page name provided or missing|Es wurde kein Wikipedia-Seitenname angegeben)", df$text, ignore.case = TRUE))
   
   
   # Filter rows based on specific conditions
   df <- df %>%
-    filter(!grepl("^(Redirect to:|Weiterleitung nach:|Rediriger vers:|Redirige a:|Přesměrování na:)", plain_text, ignore.case = TRUE) &
-             !grepl("may refer to:|ist der Name folgender Personen:|Cette page d'homonymie répertorie différentes personnes|může být:", plain_text, ignore.case = TRUE) &
-             !grepl("Error fetching content for page:|No Wikipedia page name provided or missing|Es wurde kein Wikipedia-Seitenname angegeben", plain_text, ignore.case = TRUE))
+    filter(!grepl("^(Redirect to:|Weiterleitung nach:|Rediriger vers:|Redirige a:|Přesměrování na:)", text, ignore.case = TRUE) &
+             !grepl("may refer to:|ist der Name folgender Personen:|Cette page d'homonymie répertorie différentes personnes|může být:", text, ignore.case = TRUE) &
+             !grepl("Error fetching content for page:|No Wikipedia page name provided or missing|Es wurde kein Wikipedia-Seitenname angegeben", text, ignore.case = TRUE))
   
   # Calculate the number of rows removed
   rows_removed <- initial_rows - nrow(df)
@@ -221,6 +147,8 @@ clean_data <- function(df) {
 
 
 deu <- clean_data(deu_text)
+
+deu_html <- clean_data(deu_html_text)
 
 deu$birthyear <- substr(deu$birth, 1, 4)
 
