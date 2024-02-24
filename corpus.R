@@ -68,17 +68,73 @@ gender_neutral_replacements <- c(
   "Präsidentin" = "Präsident",
   "vizeprasidentin" = "Vizepräsident",
   "Obfrau" = "Obmann",
-  "Kandidatin"= "Kandidat"
+  "Kandidatin"= "Kandidat",
+  "Anwältin" = "Anwalt",
+  "Apothekerin"="Apotheker",
+  "Betreuerin" ="Betreuer",
+  "Betriebswirtin" = "Btriebswirtin",
+  "Dezernentin" ="Dezernent",
+  "Diplom-Volkswirtin" ="Diplom-Volkswirt",
+  "Direktorin" = "Direktor",
+  "Dozentin" = "Dozent",
+  "Erzieherin"="Erzieher",
+  "Fachärztin" = "Facjarzt",
+  "Familientherapeutin" ="Familientherapeut",
+  "Fotografin"="Fotograf",
+  "Gründerin"="Gründer",
+  "Hauswirtschaftsleiterin"="Hasuwirtschaftsleiter",
+  "Journalistin" = "Journalist",
+  "Juristin" = "Jurist",
+  "Köchin" ="Koch",
+  "Korrespondentin" ="Korrespondent",
+  "Krankenpflegerin" = "Krankenpfleger",
+  "Kunsthistorikerin" = "Kunsthistoriker",
+  "Landrätin" ="Landrat",
+  "Lebensgefährtin" = "Lebensgefährt",
+  "Nachfolgerin" = "Nachfolger",
+  "Oberbürgermeisterin" = "oberbürgermeister",
+  "Postbeamtin" = "Postbeamte",
+  "Schauspielerin" = "Schauspieler",
+  "Schneiderin" = "Schneider",
+  "Schriftstellerin" = "Schriftsteller",
+  "Sekretärin"="Sekretär",
+  "Sprachlehrerin"="Sprachlehrer",
+  "Stadträtin" ="Stadtrat",
+  "Supervisorin"="Supervisor",
+  "Unternehmerin"="Unternehmer",
+  "Verkäuferin"="Verkäufer",
+  "Wirtschaftsingenieurin" ="Wirtschaftsingenieur",
+  "Ärztin"="Arzt",
+  "grafin" ="graf",
+  "partner"="partner",
+  "bundeskanzlerin"="Bundeskanzler",
+  "betriebswirtin"="betriebswirt",
+  "industriekauffrau"="Industriekaufmann",
+  "einzelhandelskauffrau"="Einzelhandelskaufmann",
+  "bankkauffrau"="Bankkaufmann"
 )
 
-tokens <- corpus %>%
-  tokens(remove_punct = TRUE, remove_numbers = TRUE, remove_symbols = TRUE, remove_hyphens = TRUE) %>%
-  tokens_replace(pattern = names(gender_neutral_replacements), replacement = gender_neutral_replacements, case_insensitive = TRUE)
+####ich möchte die namen aus der pmi analyse entfernen:
+#namen extrahieren
+first_words <- vapply(strsplit(matched_data$plain_text, "\\s+"), function(x) gsub("[,;:.!?]+$", "", x[1]), character(1))
+second_words <- vapply(strsplit(matched_data$plain_text, "\\s+"), function(x) ifelse(length(x) > 1, gsub("[,;:.!?]+$", "", x[2]), ""), character(1))
 
-# Entfernen von Stopwörtern
-tokens <- tokens %>%
-  tokens_remove(pattern = stopwords("de"), padding = FALSE) %>%
+##############namen problem
+words_to_remove <- unique(c(first_words, second_words, stopwords("de")))
+
+tokens <- tokens(corpus, remove_punct = TRUE, remove_numbers = TRUE, remove_symbols = TRUE, remove_hyphens = TRUE) %>%
+  tokens_replace(pattern = names(gender_neutral_replacements), replacement = gender_neutral_replacements, case_insensitive = TRUE) %>%
+  tokens_remove(pattern = words_to_remove, padding = FALSE) %>%
   tokens_wordstem(language = "german")
+
+# tokens <- corpus %>%
+#   tokens(remove_punct = TRUE, remove_numbers = TRUE, remove_symbols = TRUE, remove_hyphens = TRUE) %>%
+#   tokens_replace(pattern = names(gender_neutral_replacements), replacement = gender_neutral_replacements, case_insensitive = TRUE)
+# 
+# # Entfernen von Stopwörtern
+# tokens <- tokens %>%
+#   tokens_remove(pattern = stopwords("de"), padding = FALSE) %>%
+#   tokens_wordstem(language = "german")
 
 # Erstellen des DFM
 dfmat <- tokens %>%
@@ -112,6 +168,16 @@ corpus_transposed <- as.data.frame(corpus_transposed)
 corpus_transposed$word <- rownames(corpus_transposed)
 rownames(corpus_transposed) <- NULL
 
-##############namen problem
+# wörter die mit "in" enden prüfen auf genderte gruppen
+words_ending_in_in <- corpus_transposed %>%
+  filter(str_ends(word, "in")) %>%
+  pull(word)
 
+print(words_ending_in_in)
 
+# wörter die mit "frau" enden prüfen auf genderte gruppen
+words_ending_in_frau <- corpus_transposed %>%
+  filter(str_ends(word, "frau")) %>%
+  pull(word)
+
+print(words_ending_in_in)

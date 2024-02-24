@@ -1,5 +1,5 @@
 #####data acquisition Germany
-setwd("~/Documents/Zukunft/Master/drittes semester/thesis/Code/Thesis")
+setwd("~/Documents/Zukunft/Master/drittes semester/thesis/Code")
 #load necessary packages
 library(legislatoR)
 library(WikipediR)
@@ -26,7 +26,7 @@ library(MatchIt)
 deu_political <- read.csv("raw_data/deu_political.csv")
 deu_traffic <- read.csv("raw_data/deu_traffic.csv")
 
-deu_text <- read.csv("raw_data/deu_text.csv")
+deu_text <- read.csv("deu_text.csv")
 deu_html_text <- read.csv("raw_data/deu_html_text.csv")
 
 #doppelte sessions: nur älteste behalten und service aufaddieren
@@ -44,7 +44,39 @@ total_traffic_per_politician <- deu_traffic %>%
   group_by(pageid) %>%
   summarise(total_traffic = sum(traffic))
 
+# funtion für leben text selection
+extract_content <- function(text) {
+  tryCatch({
+    parts <- str_split(text, "\\[Bearbeiten \\| Quelltext bearbeiten\\]")[[1]]
+    
+    if (length(parts) >= 3) {
+      content_between = parts[2]
+      paragraph_positions <- str_locate_all(content_between, "\n\n")[[1]][,1]
+      
+      if (length(paragraph_positions) > 0) {
+        last_paragraph_pos <- max(paragraph_positions, na.rm = TRUE)
+        return(substr(content_between, 1, last_paragraph_pos))
+      } else {
+        return(content_between)
+      }
+    } else {
+      return(NA)
+    }
+  }, error = function(e) { 
+    NA 
+  })
+}
 
+
+library(dplyr)
+library(tidyverse)
+
+
+# Funktion auf jede Zeile in der Spalte "Text" anwenden und in neuer Spalte "extracted_text" speichern
+deu_text <- deu_text %>%
+  mutate(extracted_text = map_chr(plain_text, possibly(extract_content, otherwise = NA_character_)))
+
+print(head(deu_text$extracted_text, 10))
 
 ##function text acquisition
 
@@ -146,27 +178,27 @@ clean_data <- function(df) {
 }
 
 
-deu <- clean_data(deu_text)
-
+#deu <- clean_data(deu_text)
+#deu <- deu_text
 deu_html <- clean_data(deu_html_text)
 
 deu$birthyear <- substr(deu$birth, 1, 4)
 
-deu <- deu %>%
-  mutate(service_group = case_when(
-    total_service <= quantile(total_service, 0.25, na.rm = TRUE) ~ "Group 1",
-    total_service <= quantile(total_service, 0.5, na.rm = TRUE) ~ "Group 2",
-    total_service <= quantile(total_service, 0.75, na.rm = TRUE) ~ "Group 3",
-    TRUE ~ "Group 4"
-  ))
-
-deu <- deu %>%
-  mutate(traffic_group = case_when(
-    total_traffic <= quantile(total_traffic, 0.25, na.rm = TRUE) ~ "Group 1",
-    total_traffic <= quantile(total_traffic, 0.5, na.rm = TRUE) ~ "Group 2",
-    total_traffic <= quantile(total_traffic, 0.75, na.rm = TRUE) ~ "Group 3",
-    TRUE ~ "Group 4"
-  ))
+# deu <- deu %>%
+#   mutate(service_group = case_when(
+#     total_service <= quantile(total_service, 0.25, na.rm = TRUE) ~ "Group 1",
+#     total_service <= quantile(total_service, 0.5, na.rm = TRUE) ~ "Group 2",
+#     total_service <= quantile(total_service, 0.75, na.rm = TRUE) ~ "Group 3",
+#     TRUE ~ "Group 4"
+#   ))
+# 
+# deu <- deu %>%
+#   mutate(traffic_group = case_when(
+#     total_traffic <= quantile(total_traffic, 0.25, na.rm = TRUE) ~ "Group 1",
+#     total_traffic <= quantile(total_traffic, 0.5, na.rm = TRUE) ~ "Group 2",
+#     total_traffic <= quantile(total_traffic, 0.75, na.rm = TRUE) ~ "Group 3",
+#     TRUE ~ "Group 4"
+#   ))
 
 
 deu <- deu[complete.cases(deu$sex), ]
@@ -191,68 +223,77 @@ missing_share <- colMeans(is.na(deu))
 print(missing_share)
 
 
-#Using the mathcit function from MatchIt to match each smoker with a non-smoker (1 to 1 matching) based on
-#sex, indigeneity status, high school completion, marital status (partnered or not),
-#region of residence (major cities, inner regional, outer regional), language background (English speaking Yes/No) 
-#and risky alcohol drinking (Yes/No)
-match_obj <- matchit(sex ~ birthyear + religion + ethnicity + session + service_group + traffic_group,
-                     data = deu, method = "nearest", distance ="glm",
-                     ratio = 1,
-                     replace = FALSE)
+
+
+#propensity score matching
+
+# match_obj <- matchit(sex ~ birthyear + religion + ethnicity + session + total_service + total_traffic,
+#                      data = deu, method = "nearest", distance ="glm",
+#                      ratio = 1,
+#                      replace = FALSE)
+# 
+# matched_data <- match.data(match_obj)
+
+# wenn auf groups geamchted: 1946 obs.
+
+#coarsened matching
+
+match_obj <- matchit(sex ~ birthyear + session + total_service + total_traffic,
+                     data = deu, method = "cem")
 
 matched_data <- match.data(match_obj)
 
 
-male_dataset <- matched_data %>% filter(sex == "0")
-female_dataset <- matched_data %>% filter(sex == "1")
-
-female_corpus <- Corpus(VectorSource(female_dataset$plain_text))
-
-#female vocabulary
-female_corpus <- tm_map(female_corpus, content_transformer(tolower))
-female_corpus <- tm_map(female_corpus, removePunctuation)
-female_corpus <- tm_map(female_corpus, removeNumbers)
-female_corpus <- tm_map(female_corpus, removeWords, stopwords("german"))
-female_corpus <- tm_map(female_corpus, stripWhitespace)
-female_corpus <- tm_map(female_corpus, stemDocument)
-
-
-inspect(female_corpus[1:5])
-
-female_tdm <- TermDocumentMatrix(female_corpus)
-female_m <- as.matrix(female_tdm)
-female_word_counts <- rowSums(female_m)
-
-female_vocabulary <- data.frame(word = names(female_word_counts), count = female_word_counts)
-
-
-#male vocabulary
-
-male_corpus <- Corpus(VectorSource(male_dataset$plain_text))
-
-
-male_corpus <- tm_map(male_corpus, content_transformer(tolower))
-male_corpus <- tm_map(male_corpus, removePunctuation)
-male_corpus <- tm_map(male_corpus, removeNumbers)
-male_corpus <- tm_map(male_corpus, removeWords, stopwords("german"))
-male_corpus <- tm_map(male_corpus, stripWhitespace)
-male_corpus <- tm_map(male_corpus, stemDocument)
-
-
-inspect(male_corpus[1:5])
-
-male_tdm <- TermDocumentMatrix(male_corpus)
-male_m <- as.matrix(male_tdm)
-male_word_counts <- rowSums(male_m)
-
-rownames(male_word_counts) <- NULL
-
-male_vocabulary <- data.frame(word = names(male_word_counts), count = male_word_counts)
-
-
-# we only want to keep words hat are present in both vocabularies so that the pmi analysis makes sense
-common_words <- intersect(female_vocabulary$word, male_vocabulary$word)
-
-female_vocabulary_common <- female_vocabulary[female_vocabulary$word %in% common_words, ]
-male_vocabulary_common <- male_vocabulary[male_vocabulary$word %in% common_words, ]
+# male_dataset <- matched_data %>% filter(sex == "0")
+# female_dataset <- matched_data %>% filter(sex == "1")
 # 
+# female_corpus <- Corpus(VectorSource(female_dataset$plain_text))
+# 
+# #female vocabulary
+# female_corpus <- tm_map(female_corpus, content_transformer(tolower))
+# female_corpus <- tm_map(female_corpus, removePunctuation)
+# female_corpus <- tm_map(female_corpus, removeNumbers)
+# female_corpus <- tm_map(female_corpus, removeWords, stopwords("german"))
+# female_corpus <- tm_map(female_corpus, stripWhitespace)
+# female_corpus <- tm_map(female_corpus, stemDocument)
+# 
+# 
+# inspect(female_corpus[1:5])
+# 
+# female_tdm <- TermDocumentMatrix(female_corpus)
+# female_m <- as.matrix(female_tdm)
+# female_word_counts <- rowSums(female_m)
+# 
+# female_vocabulary <- data.frame(word = names(female_word_counts), count = female_word_counts)
+# 
+# 
+# #male vocabulary
+# 
+# male_corpus <- Corpus(VectorSource(male_dataset$plain_text))
+# 
+# 
+# male_corpus <- tm_map(male_corpus, content_transformer(tolower))
+# male_corpus <- tm_map(male_corpus, removePunctuation)
+# male_corpus <- tm_map(male_corpus, removeNumbers)
+# male_corpus <- tm_map(male_corpus, removeWords, stopwords("german"))
+# male_corpus <- tm_map(male_corpus, stripWhitespace)
+# male_corpus <- tm_map(male_corpus, stemDocument)
+# 
+# 
+# inspect(male_corpus[1:5])
+# 
+# male_tdm <- TermDocumentMatrix(male_corpus)
+# male_m <- as.matrix(male_tdm)
+# male_word_counts <- rowSums(male_m)
+# 
+# rownames(male_word_counts) <- NULL
+# 
+# male_vocabulary <- data.frame(word = names(male_word_counts), count = male_word_counts)
+# 
+# 
+# # we only want to keep words hat are present in both vocabularies so that the pmi analysis makes sense
+# common_words <- intersect(female_vocabulary$word, male_vocabulary$word)
+# 
+# female_vocabulary_common <- female_vocabulary[female_vocabulary$word %in% common_words, ]
+# male_vocabulary_common <- male_vocabulary[male_vocabulary$word %in% common_words, ]
+# # 

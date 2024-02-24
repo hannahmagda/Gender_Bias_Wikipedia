@@ -219,6 +219,8 @@ extract_content <- function(text) {
 
 
 library(dplyr)
+library(tidyverse)
+
 
 # Beispiel-DataFrame (ersetzen Sie dies durch Ihren tatsächlichen DataFrame)
 # deu_text <- data.frame(Text = c("Text vor Quelltext bearbeiten Erster Abschnitt Quelltext bearbeiten Zweiter Abschnitt Quelltext bearbeiten"))

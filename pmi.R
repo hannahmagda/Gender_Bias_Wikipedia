@@ -56,6 +56,10 @@
 # print("Top male PMI Words:")
 # print
 
+
+
+
+
 library(dplyr)
 
 # Berechnen der Gesamtanzahlen
@@ -75,21 +79,21 @@ pmi_df <- corpus_transposed %>%
          PMI_male = log(p_male_w / (p_w * p_c_male)) / -log(p_male_w),
          PMI_female = log(p_female_w / (p_w * p_c_female)) / -log(p_female_w))
 
-min_p <- 0.05
+min_p <- 0.01
 
 # Filter the DataFrame for female PMI values
 top_female <- pmi_df[pmi_df$PMI_female > min_p, ]
 # Sort the filtered DataFrame by 'PMI_female' in descending order
 top_female <- top_female[order(-top_female$PMI_female), ]
 # Select the top 10 rows
-top_female <- head(top_female, 100)
+top_female <- head(top_female, 200)
 
 # Filter the DataFrame for male PMI values
 top_male <- pmi_df[pmi_df$PMI_male > min_p, ]
 # Sort the filtered DataFrame by 'PMI_male' in descending order
 top_male <- top_male[order(-top_male$PMI_male), ]
 # Select the top 10 rows
-top_male <- head(top_male, 100)
+top_male <- head(top_male, 200)
 
 # Print the top female PMI words
 print("Top Female PMI Words:")
