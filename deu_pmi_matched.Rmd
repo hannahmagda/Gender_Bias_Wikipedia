@@ -473,42 +473,13 @@ matched_data <- match.data(match_obj)
 
 #pro session matchen (weil session eine hohe varianz hat nach dem matching)
 
-library(MatchIt)
+match_obj <- matchit(sex ~ birthyear + total_service + total_traffic + party + important_office + session,
+                     data = deu, method = "nearest", distance = "logit",
+                     exact = "session", # Exaktes Matching auf 'session'
+                     ratio = 1, replace = FALSE)
 
-# Initialisierung einer leeren Liste für die gematchten Daten jeder Session
-matched_data_list <- list()
-
-# Einzigartige Session-IDs extrahieren
-sessions <- unique(deu$session)
-
-# Durchführen des Matchings für jede Session separat
-for (s in sessions) {
-  # Daten für die aktuelle Session extrahieren
-  data_session <- subset(deu, session == s)
-  
-  # MatchIt mit den gewünschten Variablen durchführen
-  match_obj_session <- matchit(sex ~ birthyear + total_service + total_traffic + party + important_office,
-                                data = data_session,
-                                method = "nearest",
-                                distance = "glm",
-                                ratio = 1,
-                                replace = FALSE)
-  
-  # Gematchte Daten für die aktuelle Session speichern
-  matched_data <- match.data(match_obj_session)
-  
-  # Session-ID als zusätzliche Variable hinzufügen
-  matched_data$session <- s
-  
-  # Gematchte Daten für die aktuelle Session in der Liste speichern
-  matched_data_list[[as.character(s)]] <- matched_data
-}
-
-# Überprüfen Sie die ersten gematchten Daten für jede Session
-lapply(matched_data_list, head)
-
-matched_data_combined <- do.call(rbind, matched_data_list)
-
+# Generiere die gematchten Daten
+matched_data <- match.data(match_obj)
 
 
 ```
@@ -528,7 +499,7 @@ summary(match_obj)
 
 create a corpus - matched data
 ```{r}
-summary_df <- matched_data %>%
+summary_df_matched <- matched_data %>%
   group_by(sex) %>%
   summarise(text = paste(extracted_text, collapse = " ")) %>%
   ungroup()%>%
@@ -536,7 +507,7 @@ summary_df <- matched_data %>%
 
 
 # Erstellen des Corpus
-corpus <- corpus(summary_df, docid_field = "sex")
+corpus_matched <- corpus(summary_df_matched, docid_field = "sex")
 ```
 
 
@@ -564,12 +535,12 @@ gender_neutral_replacements <- c(
   "Lehrerin" = "Lehrer",
   "Sprecherin" = "Sprecher",
   "Wissenschaftlerin" = "Wissenschaftler",
-  "direktkandidatin" = "direktkandidat",
-  "staatssekretärin" = "Staatssekretär",
+  "Direktkandidatin" = "direktkandidat",
+  "Staatssekretärin" = "Staatssekretär",
   "Mitarbeiterin" = "Mitarbeiter",
   "Leiterin" = "Leiter",
   "Geschäftsführerin" ="Geschäftsführer",
-  "referentin" ="referent",
+  "Referentin" ="referent",
   "Spitzenkandidatin" ="Spitzenkandidat",
   "Staatsministerin" = "Staatsminister",
   "Ministerin" ="Minister",
@@ -578,16 +549,16 @@ gender_neutral_replacements <- c(
   "Generalsekretärin" ="Generalsekretär",
   "Senatorin" = "Senator",
   "Richterin" ="Richter",
-  "assistentin" = "assistent",
+  "Assistentin" = "assistent",
   "Bürgermeisterin" = "Bürgermeister",
   "Präsidentin" = "Präsident",
-  "vizeprasidentin" = "Vizepräsident",
+  "Vizepräsidentin" = "Vizepräsident",
   "Obfrau" = "Obmann",
   "Kandidatin"= "Kandidat",
   "Anwältin" = "Anwalt",
   "Apothekerin"="Apotheker",
   "Betreuerin" ="Betreuer",
-  "Btriebswirtin" = "Betriebswirt",
+  "Betriebswirtin" = "Btriebswirtin",
   "Dezernentin" ="Dezernent",
   "Diplom-Volkswirtin" ="Diplom-Volkswirt",
   "Direktorin" = "Direktor",
@@ -620,19 +591,32 @@ gender_neutral_replacements <- c(
   "Verkäuferin"="Verkäufer",
   "Wirtschaftsingenieurin" ="Wirtschaftsingenieur",
   "Ärztin"="Arzt",
-  "grafin" ="graf",
-  "partnerin"="partner",
-  "bundeskanzlerin"="Bundeskanzler",
-  "betriebswirtin"="betriebswirt",
+  "Gräfin" ="graf",
+  "Partnerin"="partner",
+  "Bundeskanzlerin"="Bundeskanzler",
+  "Betriebswirtin"="betriebswirt",
   "industriekauffrau"="Industriekaufmann",
-  "einzelhandelskauffrau"="Einzelhandelskaufmann",
+  "Einzelhandelskauffrau"="Einzelhandelskaufmann",
   "bankkauffrau"="Bankkaufmann",
   "Autorin" = "autor",
-  "stenotypistin" = "stenotypist",
+  "Stenotypistin" = "stenotypist",
   "Pädagogin"="Padagoge",
   "Stellvertreterin" ="Stellvertreter",
-  "bundesministerin" = "bundesminister",
-  "biologin" = "Biologe"
+  "Bundesministerin" = "bundesminister",
+  "Biologin" = "Biologe",
+  "Schülerin" = "Schüler",
+  "Verlegerin" = "Verleger",
+  "Btriebswirtin" = "Betriebswirt",
+  "Staatsrätin" = "Staatsrat",
+  "Fabrikarbeiterin" = "Fabrikarbeiter",
+  "Steuerberaterin" = "Steuerberater",
+  "Buchhalterin" = "Buchhalter",
+  "Architektin" = "Architekt",
+  "Justizsenatorin" = "Justizsenator",
+  "Hauswirtschaftslehrerin" = "hauswirtschaftslehrer",
+  "Gymnasiallehrerin" = "Gymnasiallehrer",
+  "Sozialarbeiterin" ="Sozialarbeiter",
+  "Studienrätin" = "Studienrat"
 )
 
 ####ich möchte die namen aus der pmi analyse entfernen:
@@ -643,85 +627,85 @@ second_words <- vapply(strsplit(matched_data$plain_text, "\\s+"), function(x) if
 ##############namen problem
 words_to_remove <- unique(c(first_words, second_words, stopwords("de")))
 
-tokens <- tokens(corpus, remove_punct = TRUE, remove_numbers = TRUE, remove_symbols = TRUE) %>%
+tokens_matched <- tokens(corpus_matched, remove_punct = TRUE, remove_numbers = TRUE, remove_symbols = TRUE) %>%
   tokens_replace(pattern = names(gender_neutral_replacements), replacement = gender_neutral_replacements, case_insensitive = TRUE) %>%
   tokens_remove(pattern = words_to_remove, padding = FALSE) %>%
   tokens_wordstem(language = "german")
 
 # Erstellen des DFM
-dfmat <- tokens %>%
+dfmat_matched <- tokens_matched %>%
   dfm()
 
 # Überprüfen Sie das Ergebnis
-print(dfmat)
+print(dfmat_matched)
 
 #covert to df
-corpus_df <- convert(dfmat, to = "data.frame")
+corpus_df_matched <- convert(dfmat_matched, to = "data.frame")
 
 # Setzen der ersten Spalte als Zeilennamen
-rownames(corpus_df) <- corpus_df[, 1]
+rownames(corpus_df_matched) <- corpus_df_matched[, 1]
 
 # Entfernen der ersten Spalte aus dem DataFrame
-corpus_df <- corpus_df[, -1]
+corpus_df_matched <- corpus_df_matched[, -1]
 
 #only keep words that appear in both genders
 # Zählen der Nullen in jeder Spalte
-zero_count_per_column <- colSums(corpus_df == 0)
+zero_count_per_column_matched <- colSums(corpus_df_matched == 0)
 
 # Filtern der Spalten, bei denen keine Nullen vorhanden sind
-corpus_common <- corpus_df[, zero_count_per_column == 0]
+corpus_common_matched <- corpus_df_matched[, zero_count_per_column_matched == 0]
 
 
 #swap rows and columns
-corpus_transposed <- t(corpus_common)
+corpus_transposed_matched <- t(corpus_common_matched)
 
 # Umwandeln der transponierten Matrix zurück in einen DataFrame
-corpus_transposed <- as.data.frame(corpus_transposed)
-corpus_transposed$word <- rownames(corpus_transposed)
-rownames(corpus_transposed) <- NULL
+corpus_transposed_matched <- as.data.frame(corpus_transposed_matched)
+corpus_transposed_matched$word <- rownames(corpus_transposed_matched)
+rownames(corpus_transposed_matched) <- NULL
 
 
 ```
 Pmi Berechnung, top words - matched data
 ```{r}
 # Berechnen der Gesamtanzahlen
-total_male_count <- sum(corpus_transposed$male)
-total_female_count <- sum(corpus_transposed$female)
-total_count <- total_male_count + total_female_count
+total_male_count_matched <- sum(corpus_transposed_matched$male)
+total_female_count_matched <- sum(corpus_transposed_matched$female)
+total_count_matched <- total_male_count_matched + total_female_count_matched
 
 # Wahrscheinlichkeiten für jede Klasse
-p_c_male <- total_male_count / total_count
-p_c_female <- total_female_count / total_count
+p_c_male_matched <- total_male_count_matched / total_count_matched
+p_c_female_matched <- total_female_count_matched / total_count_matched
 
 # Hinzufügen der PMI-Berechnungen zum DataFrame
-pmi_df <- corpus_transposed %>%
-  mutate(p_w = (male + female) / total_count,
-         p_male_w = male / total_count,
-         p_female_w = female / total_count,
-         PMI_male = log(p_male_w / (p_w * p_c_male)) / -log(p_male_w),
-         PMI_female = log(p_female_w / (p_w * p_c_female)) / -log(p_female_w))
+pmi_df_matched <- corpus_transposed_matched %>%
+  mutate(p_w = (male + female) / total_count_matched,
+         p_male_w = male / total_count_matched,
+         p_female_w = female / total_count_matched,
+         PMI_male = log(p_male_w / (p_w * p_c_male_matched)) / -log(p_male_w),
+         PMI_female = log(p_female_w / (p_w * p_c_female_matched)) / -log(p_female_w))
 
 min_p <- 0.01
 
 # Filter the DataFrame for female PMI values
-top_female <- pmi_df[pmi_df$PMI_female > min_p, ]
+top_female_matched <- pmi_df_matched[pmi_df_matched$PMI_female > min_p, ]
 # Sort the filtered DataFrame by 'PMI_female' in descending order
-top_female <- top_female[order(-top_female$PMI_female), ]
+top_female_matched <- top_female_matched[order(-top_female_matched$PMI_female), ]
 # Select the top 10 rows
-top_female <- head(top_female, 200)
+top_female_matched <- head(top_female_matched, 200)
 
 # Filter the DataFrame for male PMI values
-top_male <- pmi_df[pmi_df$PMI_male > min_p, ]
+top_male_matched <- pmi_df_matched[pmi_df_matched$PMI_male > min_p, ]
 # Sort the filtered DataFrame by 'PMI_male' in descending order
-top_male <- top_male[order(-top_male$PMI_male), ]
+top_male_matched <- top_male_matched[order(-top_male_matched$PMI_male), ]
 # Select the top 10 rows
-top_male <- head(top_male, 200)
+top_male_matched <- head(top_male_matched, 200)
 
 # Print the top female PMI words
-print("Top Female PMI Words:")
-print(top_female)
+print("Top Female PMI Words matched:")
+print(top_female_matched)
 
-print("Top male PMI Words:")
-print(top_male)
+print("Top male PMI Words matched:")
+print(top_male_matched)
 ```
 
