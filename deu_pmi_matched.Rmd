@@ -77,6 +77,45 @@ deu_text <- deu_text %>%
 
 ```
 
+```{r}
+clean_data <- function(df) {
+  initial_rows <- nrow(df)
+  
+  # Remove CSS-like structures
+  #df$plain_text <- str_remove_all(df$plain_text, "\\..*?\\{.*?\\}")
+
+  # Initialize counters for removal reasons
+  removal_reason_redirect <- sum(grepl("^(Redirect to:|Weiterleitung nach:|Rediriger vers:|Redirige a:|Přesměrování na:)", df$plain_text, ignore.case = TRUE))
+  removal_reason_refering_page <- sum(grepl("may refer to:|ist der Name folgender Personen:|Cette page d'homonymie répertorie différentes personnes|může být:", df$plain_text, ignore.case = TRUE))
+  removal_reason_not_found <- sum(grepl("^(Error fetching content for page:|No Wikipedia page name provided or missing|Es wurde kein Wikipedia-Seitenname angegeben)", df$plain_text, ignore.case = TRUE))
+  
+  
+  # Filter rows based on specific conditions
+  df <- df %>%
+    filter(!grepl("^(Redirect to:|Weiterleitung nach:|Rediriger vers:|Redirige a:|Přesměrování na:)", plain_text, ignore.case = TRUE) &
+             !grepl("may refer to:|ist der Name folgender Personen:|Cette page d'homonymie répertorie différentes personnes|může být:", plain_text, ignore.case = TRUE) &
+             !grepl("Error fetching content for page:|No Wikipedia page name provided or missing|Es wurde kein Wikipedia-Seitenname angegeben", plain_text, ignore.case = TRUE))
+  
+  # Calculate the number of rows removed
+  rows_removed <- initial_rows - nrow(df)
+  
+  # Print statistics about the removal reasons
+  cat("Removal reasons:\n")
+  cat("  - Redirect:", removal_reason_redirect, "\n")
+  cat("  - Reference Page:", removal_reason_refering_page, "\n")
+  cat("  - Not Found/no name_provided:", removal_reason_not_found, "\n")
+  
+  
+  # Create a message about the cleaning process
+  cat("Cleaned data: Removed", rows_removed, "rows.\n")
+  
+  # Return the cleaned data frame
+  return(df)
+}
+
+
+deu <- clean_data(deu_text)
+```
 
 
 create a corpus 
@@ -84,8 +123,10 @@ create a corpus
 summary_df <- deu %>%
   group_by(sex) %>%
   summarise(text = paste(extracted_text, collapse = " ")) %>%
-  ungroup()%>%
-  mutate(sex = ifelse(sex == 1, "female", "male"))
+  ungroup()
+
+deu <- deu[complete.cases(deu$sex), ]
+deu$sex <- ifelse(deu$sex == "male", 0, 1)
 
 
 # Erstellen des Corpus
@@ -198,7 +239,18 @@ gender_neutral_replacements <- c(
   "Hauswirtschaftslehrerin" = "hauswirtschaftslehrer",
   "Gymnasiallehrerin" = "Gymnasiallehrer",
   "Sozialarbeiterin" ="Sozialarbeiter",
-  "Studienrätin" = "Studienrat"
+  "Studienrätin" = "Studienrat",
+  "Diplom-Kauffrau" = "Diplom-Kaufmann",
+  "Soldatin" = "Soldat",
+  "Landwirtin" = "Landwirt",
+  "Redakteurin" = "Redakteur",
+  "Professorin" = "Professor",
+  "Notarin" ="Notar",
+  "Prokuristin" = "Prokurist",
+  "Diplom-Igenieurin" = "Diplom-Ingenieur",
+  "Gewerkschaftssekretärin" = "Gewerkschaftssekretär",
+  "Nationalsozialistin" = "Nationalsozialist",
+  "Chefredakteurin" = "Chefredakteur"
 )
 
 ####ich möchte die namen aus der pmi analyse entfernen:
@@ -274,14 +326,14 @@ top_female <- pmi_df[pmi_df$PMI_female > min_p, ]
 # Sort the filtered DataFrame by 'PMI_female' in descending order
 top_female <- top_female[order(-top_female$PMI_female), ]
 # Select the top 10 rows
-top_female <- head(top_female, 200)
+top_female <- head(top_female, 100)
 
 # Filter the DataFrame for male PMI values
 top_male <- pmi_df[pmi_df$PMI_male > min_p, ]
 # Sort the filtered DataFrame by 'PMI_male' in descending order
 top_male <- top_male[order(-top_male$PMI_male), ]
 # Select the top 10 rows
-top_male <- head(top_male, 200)
+top_male <- head(top_male, 100)
 
 # Print the top female PMI words
 print("Top Female PMI Words:")
@@ -298,7 +350,6 @@ G: Gender
 O: Other
 ```{r}
 
-#spalte für kategoriene erstellen
 #download data to annotate
 
 
@@ -307,9 +358,9 @@ write_csv(top_female, "female_pmi.csv")
 female_pmi_cat <- read.csv("female_pmi_cat.csv", sep = ";")
 
 female_pmi_cat %>%
-  count(category) %>%
+  count(cat) %>%
   mutate(percentage = n / sum(n) * 100) %>%
-  select(category, percentage)
+  select(cat, percentage)
 
 
 #male data
@@ -317,12 +368,12 @@ write_csv(top_male, "male_pmi.csv")
 male_pmi_cat <- read.csv("male_pmi_cat.csv", sep = ";")
 
 male_pmi_cat %>%
-  count(category) %>%
+  count(cat) %>%
   mutate(percentage = n / sum(n) * 100) %>%
-  select(category, percentage)
+  select(cat, percentage)
 
-m_count <- prop.table(table(male_pmi_cat$category)) * 100
-f_count <- prop.table(table(female_pmi_cat$category)) * 100
+m_count <- prop.table(table(male_pmi_cat$cat)) * 100
+f_count <- prop.table(table(female_pmi_cat$cat)) * 100
 
 # Initialisiere Vektoren für die Proportionen
 m_proportions <- numeric(length = 4)
@@ -335,14 +386,21 @@ for (i in 1:4) {
   f_proportions[i] <- ifelse(categories[i] %in% names(f_count), f_count[categories[i]], 0)
 }
 
+
+###chi squared - categories with too low frequencies, not really reliable
 chisq_result <- chisq.test(rbind(m_proportions, f_proportions))
 print(chisq_result)
 
+p0 <- as.numeric(m_proportions)
+p1 <- as.numeric(f_proportions)
 
+# Berechnung von Cohen's w in R
+cohens_w <- sqrt(sum(((p1 - p0)^2) / p1))
+print(cohens_w)
 
-#fisher test
-m_count_abs <- table(male_pmi_cat$category)
-f_count_abs <- table(female_pmi_cat$category)
+#fisher test which can be used exactly for those situatins with low frequencies
+m_count_abs <- table(male_pmi_cat$cat)
+f_count_abs <- table(female_pmi_cat$cat)
 
 # Stelle sicher, dass beide Tabellen dieselben Kategorien in derselben Reihenfolge haben
 all_categories <- union(names(m_count_abs), names(f_count_abs))
@@ -359,12 +417,37 @@ print(fisher_test_result)
 
 ###kleiner als 0.05 -> signifikant
 
-p0 <- as.numeric(m_proportions)
-p1 <- as.numeric(f_proportions)
 
-# Berechnung von Cohen's w in R
-cohens_w <- sqrt(sum(((p1 - p0)^2) / p1))
-print(cohens_w)
+
+```
+
+visualization of results
+```{r}
+
+####mit ggwordcloud
+
+library(ggwordcloud)
+
+
+# Erstellen des Wordclouds mit ggwordcloud
+female_wordcloud <- ggplot(female_pmi_cat, aes(label = word, size = female, colour = cat)) +
+  geom_text_wordcloud() +
+  scale_size_area(max_size = 15) + # Anpassen für bessere Visualisierung
+  theme_minimal()
+
+ggsave("visualisations/female_wordcloud.jpg", plot = female_wordcloud, width = 10, height = 8)
+
+library(ggwordcloud)
+
+
+# Erstellen des Wordclouds mit ggwordcloud
+male_wordcloud <- ggplot(male_pmi_cat, aes(label = word, size = male, colour = cat)) +
+  geom_text_wordcloud() +
+  scale_size_area(max_size = 15) + # Anpassen für bessere Visualisierung
+  theme_minimal()
+
+ggsave("visualisations/male_wordcloud.jpg", plot = male_wordcloud, width = 10, height = 8)
+
 
 ```
 
@@ -398,17 +481,16 @@ check_office <- function(wikidataid, offices_dataset) {
 }
 
 # Erstellen Sie eine neue Spalte im deu_text, die angibt, ob der Politiker ein Amt innehat
-deu_text$important_office <- sapply(deu_text$wikidataid, check_office, offices_dataset = deu_offices)
+deu$important_office <- sapply(deu$wikidataid, check_office, offices_dataset = deu_offices)
 
 deu_political$pageid <- as.integer(deu_political$pageid)
-deu_text <- left_join(deu_text, select(deu_political, pageid, session, party, total_service), by = "pageid")
+deu <- left_join(deu, select(deu_political, pageid, session, party, total_service), by = "pageid")
 total_traffic_per_politician$pageid <- as.integer(total_traffic_per_politician$pageid)
-deu_text <- left_join(deu_text, select(total_traffic_per_politician, pageid, total_traffic), by = "pageid")
+deu <- left_join(deu, select(total_traffic_per_politician, pageid, total_traffic), by = "pageid")
 
 ```
 
 ```{r}
-deu <- deu_text
 deu$birthyear <- substr(deu$birth, 1, 4)
 deu$birthyear <- as.numeric(as.character(deu$birthyear))
 
@@ -417,12 +499,6 @@ deu$sex <- ifelse(deu$sex == "male", 0, 1)
 missing_share <- colMeans(is.na(deu))
 print(missing_share)
 
-```
-matching prep - missing data
-```{r}
-#data is missing not at random, so we need to impute it in some way - create a group for missing data or we have to leave it out
-# deu$religion[is.na(deu$religion)] <- "protestantism lutheran"
-# deu$ethnicity[is.na(deu$ethnicity)] <- "white"
 ```
 
 
@@ -435,6 +511,7 @@ m.out0 <- matchit(sex ~ birthyear + session + total_service + total_traffic + pa
 # Checking balance prior to matching
 summary(m.out0)
 ```
+
 ```{r}
 #  religion_session <- deu %>%
 #      group_by(session) %>%
@@ -454,12 +531,12 @@ Match the data
 ```{r}
 #propensity score matching
 
-match_obj <- matchit(sex ~ birthyear + session + total_service + total_traffic + party + important_office,
-                     data = deu, method = "nearest", distance ="glm",
-                     ratio = 1,
-                     replace = FALSE)
-
-matched_data <- match.data(match_obj)
+# match_obj <- matchit(sex ~ birthyear + session + total_service + total_traffic + party + important_office,
+#                      data = deu, method = "nearest", distance ="glm",
+#                      ratio = 1,
+#                      replace = FALSE)
+# 
+# matched_data <- match.data(match_obj)
 
 # wenn auf groups geamchted: 1946 obs.
 
@@ -616,7 +693,18 @@ gender_neutral_replacements <- c(
   "Hauswirtschaftslehrerin" = "hauswirtschaftslehrer",
   "Gymnasiallehrerin" = "Gymnasiallehrer",
   "Sozialarbeiterin" ="Sozialarbeiter",
-  "Studienrätin" = "Studienrat"
+  "Studienrätin" = "Studienrat",
+  "Diplom-Kauffrau" = "Diplom-Kaufmann",
+  "Soldatin" = "Soldat",
+  "Landwirtin" = "Landwirt",
+  "Redakteurin" = "Redakteur",
+  "Professorin" = "Professor",
+  "Notarin" ="Notar",
+  "Prokuristin" = "Prokurist",
+  "Diplom-Igenieurin" = "Diplom-Ingenieur",
+  "Gewerkschaftssekretärin" = "Gewerkschaftssekretär",
+  "Nationalsozialistin" = "Nationalsozialist",
+  "Chefredakteurin" = "Chefredakteur"
 )
 
 ####ich möchte die namen aus der pmi analyse entfernen:
@@ -692,14 +780,14 @@ top_female_matched <- pmi_df_matched[pmi_df_matched$PMI_female > min_p, ]
 # Sort the filtered DataFrame by 'PMI_female' in descending order
 top_female_matched <- top_female_matched[order(-top_female_matched$PMI_female), ]
 # Select the top 10 rows
-top_female_matched <- head(top_female_matched, 200)
+top_female_matched <- head(top_female_matched, 100)
 
 # Filter the DataFrame for male PMI values
 top_male_matched <- pmi_df_matched[pmi_df_matched$PMI_male > min_p, ]
 # Sort the filtered DataFrame by 'PMI_male' in descending order
 top_male_matched <- top_male_matched[order(-top_male_matched$PMI_male), ]
 # Select the top 10 rows
-top_male_matched <- head(top_male_matched, 200)
+top_male_matched <- head(top_male_matched, 100)
 
 # Print the top female PMI words
 print("Top Female PMI Words matched:")
@@ -708,4 +796,108 @@ print(top_female_matched)
 print("Top male PMI Words matched:")
 print(top_male_matched)
 ```
+
+categories annotation
+```{r}
+#download data to annotate
+
+
+#female data
+write_csv(top_female_matched, "female_pmi_matched.csv")
+female_pmi_cat_matched <- read.csv("female_pmi_cat_matched.csv", sep = ";")
+
+female_pmi_cat_matched %>%
+  count(cat) %>%
+  mutate(percentage = n / sum(n) * 100) %>%
+  select(cat, percentage)
+
+
+#male data
+write_csv(top_male_matched, "male_pmi_matched.csv")
+male_pmi_cat_matched <- read.csv("male_pmi_cat_matched.csv", sep = ";")
+
+male_pmi_cat_matched %>%
+  count(cat) %>%
+  mutate(percentage = n / sum(n) * 100) %>%
+  select(cat, percentage)
+
+m_count_matched <- prop.table(table(male_pmi_cat_matched$cat)) * 100
+f_count_matched <- prop.table(table(female_pmi_cat_matched$cat)) * 100
+
+m_proportions_matched <- numeric(length = 4)
+f_proportions_matched <- numeric(length = 4)
+
+categories <- c('F', 'G', 'O', 'R')
+
+for (i in 1:4) {
+  m_proportions_matched[i] <- ifelse(categories[i] %in% names(m_count_matched), m_count_matched[categories[i]], 0)
+  f_proportions_matched[i] <- ifelse(categories[i] %in% names(f_count_matched), f_count_matched[categories[i]], 0)
+}
+
+
+###chi squared - categories with too low frequencies, not really reliable
+chisq_result_matched <- chisq.test(rbind(m_proportions_matched, f_proportions_matched))
+print(chisq_result)
+
+p0_matched <- as.numeric(m_proportions_matched)
+p1_matched <- as.numeric(f_proportions_matched)
+
+# Berechnung von Cohen's w in R
+cohens_w <- sqrt(sum(((p1_matched - p0_matched)^2) / p1_matched))
+print(cohens_w_matched)
+
+#fisher test which can be used exactly for those situatins with low frequencies
+m_count_abs_matched <- table(male_pmi_cat_matched$cat)
+f_count_abs_matched <- table(female_pmi_cat_matched$cat)
+
+# Stelle sicher, dass beide Tabellen dieselben Kategorien in derselben Reihenfolge haben
+all_categories <- union(names(m_count_abs), names(f_count_abs))
+m_count_abs <- m_count_abs[all_categories]
+f_count_abs <- f_count_abs[all_categories]
+
+# Ersetze fehlende Kategorien durch 0
+m_count_abs[is.na(m_count_abs)] <- 0
+f_count_abs[is.na(f_count_abs)] <- 0
+
+# Führe Fisher's Exact Test mit den absoluten Häufigkeiten durch
+fisher_test_result <- fisher.test(rbind(m_count_abs, f_count_abs))
+print(fisher_test_result)
+
+###kleiner als 0.05 -> signifikant
+
+
+
+```
+visualization of results matched
+```{r}
+
+####mit ggwordcloud
+
+library(ggwordcloud)
+
+
+# Erstellen des Wordclouds mit ggwordcloud
+female_wordcloud_matched <- ggplot(female_pmi_cat_matched, aes(label = word, size = female, colour = cat)) +
+  geom_text_wordcloud() +
+  scale_size_area(max_size = 15) + # Anpassen für bessere Visualisierung
+  theme_minimal()
+
+ggsave("visualisations/female_wordcloud_matched.jpg", plot = female_wordcloud_matched, width = 10, height = 8)
+
+library(ggwordcloud)
+
+
+# Erstellen des Wordclouds mit ggwordcloud
+male_wordcloud_matched <- ggplot(male_pmi_cat, aes(label = word, size = male, colour = cat)) +
+  geom_text_wordcloud() +
+  scale_size_area(max_size = 15) + # Anpassen für bessere Visualisierung
+  theme_minimal()
+
+ggsave("visualisations/male_wordcloud_matched.jpg", plot = male_wordcloud_matched, width = 10, height = 8)
+
+
+```
+
+
+Alte Sessions vs neue Sessions
 
