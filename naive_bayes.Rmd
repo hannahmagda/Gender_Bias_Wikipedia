@@ -1,0 +1,262 @@
+---
+title: "naive bayes"
+author: "Hannah Schweren"
+date: "2024-02-29"
+output: html_document
+---
+
+
+```{r}
+library(legislatoR)
+library(WikipediR)
+library(rvest)
+library(dplyr)
+library(stringr) #für word count
+library(ggplot2)
+library(tm)
+library(MatchIt)
+library(quanteda)
+library(purrr)
+library(tm)
+library(tidytext)
+
+
+```
+
+```{r}
+gender_neutral_replacements <- c(
+  "Politikerin" = "Politiker",
+  "Lehrerin" = "Lehrer",
+  "Sprecherin" = "Sprecher",
+  "Wissenschaftlerin" = "Wissenschaftler",
+  "Direktkandidatin" = "direktkandidat",
+  "Staatssekretärin" = "Staatssekretär",
+  "Mitarbeiterin" = "Mitarbeiter",
+  "Leiterin" = "Leiter",
+  "Geschäftsführerin" ="Geschäftsführer",
+  "Referentin" ="referent",
+  "Spitzenkandidatin" ="Spitzenkandidat",
+  "Staatsministerin" = "Staatsminister",
+  "Ministerin" ="Minister",
+  "Rechtsanwältin" ="Rechtsanwalt",
+  "Statträtin" = "Stadtrat",
+  "Generalsekretärin" ="Generalsekretär",
+  "Senatorin" = "Senator",
+  "Richterin" ="Richter",
+  "Assistentin" = "assistent",
+  "Bürgermeisterin" = "Bürgermeister",
+  "Präsidentin" = "Präsident",
+  "Vizepräsidentin" = "Vizepräsident",
+  "Obfrau" = "Obmann",
+  "Kandidatin"= "Kandidat",
+  "Anwältin" = "Anwalt",
+  "Apothekerin"="Apotheker",
+  "Betreuerin" ="Betreuer",
+  "Betriebswirtin" = "Btriebswirtin",
+  "Dezernentin" ="Dezernent",
+  "Diplom-Volkswirtin" ="Diplom-Volkswirt",
+  "Direktorin" = "Direktor",
+  "Dozentin" = "Dozent",
+  "Erzieherin"="Erzieher",
+  "Fachärztin" = "Facharzt",
+  "Familientherapeutin" ="Familientherapeut",
+  "Fotografin"="Fotograf",
+  "Gründerin"="Gründer",
+  "Hauswirtschaftsleiterin"="Hasuwirtschaftsleiter",
+  "Journalistin" = "Journalist",
+  "Juristin" = "Jurist",
+  "Köchin" ="Koch",
+  "Korrespondentin" ="Korrespondent",
+  "Krankenpflegerin" = "Krankenpfleger",
+  "Kunsthistorikerin" = "Kunsthistoriker",
+  "Landrätin" ="Landrat",
+  "Lebensgefährtin" = "Lebensgefährt",
+  "Nachfolgerin" = "Nachfolger",
+  "Oberbürgermeisterin" = "oberbürgermeister",
+  "Postbeamtin" = "Postbeamte",
+  "Schauspielerin" = "Schauspieler",
+  "Schneiderin" = "Schneider",
+  "Schriftstellerin" = "Schriftsteller",
+  "Sekretärin"="Sekretär",
+  "Sprachlehrerin"="Sprachlehrer",
+  "Stadträtin" ="Stadtrat",
+  "Supervisorin"="Supervisor",
+  "Unternehmerin"="Unternehmer",
+  "Verkäuferin"="Verkäufer",
+  "Wirtschaftsingenieurin" ="Wirtschaftsingenieur",
+  "Ärztin"="Arzt",
+  "Gräfin" ="graf",
+  "Partnerin"="partner",
+  "Bundeskanzlerin"="Bundeskanzler",
+  "Betriebswirtin"="betriebswirt",
+  "industriekauffrau"="Industriekaufmann",
+  "Einzelhandelskauffrau"="Einzelhandelskaufmann",
+  "bankkauffrau"="Bankkaufmann",
+  "Autorin" = "autor",
+  "Stenotypistin" = "stenotypist",
+  "Pädagogin"="Padagoge",
+  "Stellvertreterin" ="Stellvertreter",
+  "Bundesministerin" = "bundesminister",
+  "Biologin" = "Biologe",
+  "Schülerin" = "Schüler",
+  "Verlegerin" = "Verleger",
+  "Btriebswirtin" = "Betriebswirt",
+  "Staatsrätin" = "Staatsrat",
+  "Fabrikarbeiterin" = "Fabrikarbeiter",
+  "Steuerberaterin" = "Steuerberater",
+  "Buchhalterin" = "Buchhalter",
+  "Architektin" = "Architekt",
+  "Justizsenatorin" = "Justizsenator",
+  "Hauswirtschaftslehrerin" = "hauswirtschaftslehrer",
+  "Gymnasiallehrerin" = "Gymnasiallehrer",
+  "Sozialarbeiterin" ="Sozialarbeiter",
+  "Studienrätin" = "Studienrat",
+  "Diplom-Kauffrau" = "Diplom-Kaufmann",
+  "Soldatin" = "Soldat",
+  "Landwirtin" = "Landwirt",
+  "Redakteurin" = "Redakteur",
+  "Professorin" = "Professor",
+  "Notarin" ="Notar",
+  "Prokuristin" = "Prokurist",
+  "Diplom-Igenieurin" = "Diplom-Ingenieur",
+  "Gewerkschaftssekretärin" = "Gewerkschaftssekretär",
+  "Nationalsozialistin" = "Nationalsozialist",
+  "Chefredakteurin" = "Chefredakteur"
+)
+
+# #namen extrahieren
+# name_words <- unlist(strsplit(deu$name, " "))
+# name_stemmed <- sapply(name_words, function(name) {
+#   stemDocument(name, language = "german")
+# })
+# 
+
+
+```
+
+
+```{r}
+
+name_words <- unlist(strsplit(gsub("-", " ", deu$name), " "))
+name_stemmed <- sapply(name_words, function(name) {
+  stemDocument(name, language = "german")
+})
+
+words_to_remove <- unique(tolower(c(name_stemmed, stopwords("de"))))
+
+
+data_tokens <- data %>%
+  # Ersetze Bindestriche im Text durch Leerzeichen
+  mutate(text = gsub("-", " ", text)) %>%
+  unnest_tokens(word, text) %>%
+  # Optionale Anpassung: Entfernen des Suffix "in"
+  mutate(word = str_replace(word, "in$", "")) %>%
+  # Stemming für deutsche Wörter
+  mutate(word = sapply(word, function(w) {
+    stemDocument(w, language = "german")
+  }))%>%
+  # Entferne Wörter, die "frau" enthalten
+  filter(!str_detect(word, "frau")) %>%
+  filter(!word %in% words_to_remove) %>%
+  anti_join(stop_words, by = "word")
+
+# Tokenisierung und Entfernung von Stoppwörtern und spezifischen ersten und zweiten Wörtern
+# data_tokens <- data %>%
+#   unnest_tokens(word, text) %>%
+#   filter(!word %in% words_to_remove) %>%
+#   anti_join(stop_words, by = "word")
+# 
+# data_tokens <- data %>%
+#   unnest_tokens(word, text) %>%
+#   # Entfernen des Suffix "in" bei Wörtern, die damit enden
+#   mutate(word = str_replace(word, "in$", "")) %>%
+#   # Stemming für deutsche Wörter
+#   mutate(word = sapply(word, function(w) {
+#     stemDocument(w, language = "german")
+#   })) %>%
+#   filter(!word %in% words_to_remove) %>%
+#   anti_join(stop_words, by = "word")
+
+
+data_tfidf <- data_tokens %>%
+  count(sex, word) %>%
+  bind_tf_idf(word, sex, n)
+
+N <- 20000  # Anzahl der Top-Features, die du behalten möchtest
+
+top_n_words <- data_tfidf %>%
+  arrange(desc(tf_idf)) %>%
+  slice(1:N) %>%
+  pull(word) %>%
+  unique()
+
+# Reduziere `data_tokens` auf nur die Top-N-Wörter
+data_tokens_filtered <- data_tokens %>%
+  filter(word %in% top_n_words)
+
+data_tfidf_filtered <- data_tokens_filtered %>%
+  count(sex, word) %>%
+  bind_tf_idf(word, sex, n)
+
+# Umwandeln in Wide-Format
+tfidf_wide_filtered <- data_tfidf_filtered %>%
+  spread(key = word, value = tf_idf, fill = 0)
+
+# Stelle sicher, dass `sex` als Faktor behandelt wird
+tfidf_wide_filtered$sex <- as.factor(tfidf_wide_filtered$sex)
+
+model <- naiveBayes(sex ~ ., data = tfidf_wide_filtered)
+
+
+
+
+```
+
+
+```{r}
+words_df <- data.frame(
+  word = character(),
+  prob_female = numeric(),
+  prob_male = numeric(),
+  stringsAsFactors = FALSE
+)
+
+# Iteriere durch jedes Element in model$tables
+for (word in names(model$tables)) {
+  # Extrahiere die Matrix für das aktuelle Wort
+  prob_matrix <- model$tables[[word]]
+  
+  # Füge die Daten zum DataFrame hinzu
+  words_df <- rbind(words_df, data.frame(
+    word = word,
+    prob_female = prob_matrix["female", 1],  # Annahme: Spalte 1 enthält die gewünschten Wahrscheinlichkeiten
+    prob_male = prob_matrix["male", 1]
+  ))
+}
+
+# Überprüfe die ersten Zeilen des DataFrames
+rownames(words_df) <- NULL
+
+head(words_df)
+
+
+```
+
+
+```{r}
+epsilon <- 1e-10
+words_df$prob_female_adj <- ifelse(words_df$prob_female == 0, epsilon, words_df$prob_female)
+words_df$prob_male_adj <- ifelse(words_df$prob_male == 0, epsilon, words_df$prob_male)
+
+# Berechne LLRs
+words_df$LLR <- with(words_df, log(prob_male_adj / prob_female_adj))
+
+# Sortiere die Ergebnisse basierend auf LLR, um die am stärksten differenzierenden Wörter zu sehen
+words_df_sorted <- words_df[order(abs(words_df$LLR), decreasing = TRUE), ]
+
+
+write_csv(head(words_df_sorted, 100), "nb_top.csv")
+
+
+```
+

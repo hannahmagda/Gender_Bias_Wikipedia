@@ -480,6 +480,8 @@ check_office <- function(wikidataid, offices_dataset) {
   return(ifelse(length(any_true) == 0, FALSE, any_true))
 }
 
+deu_offices <- get_office(legislature = "deu")
+
 # Erstellen Sie eine neue Spalte im deu_text, die angibt, ob der Politiker ein Amt innehat
 deu$important_office <- sapply(deu$wikidataid, check_office, offices_dataset = deu_offices)
 
@@ -502,28 +504,9 @@ print(missing_share)
 ```
 
 
-```{r}
-#No matching; constructing a pre-match matchit object
-m.out0 <- matchit(sex ~ birthyear + session + total_service + total_traffic + party + important_office,
-                     data = deu,
-                 method = NULL, distance = "glm")
 
-# Checking balance prior to matching
-summary(m.out0)
-```
 
-```{r}
-#  religion_session <- deu %>%
-#      group_by(session) %>%
-#      count(religion) %>%
-#      arrange(session)
-# 
-# ggplot(religion_session, aes(x = session, y = n, fill = religion)) +
-#   geom_bar(stat = "identity", position = "stack") +
-#   theme_minimal() +
-#   labs(x = "Session", y = "Anzahl der Kontakte", fill = "Religion") +
-#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) # Dreht die X-Achsen-Beschriftungen für bessere Lesbarkeit
-```
+
 
 
 
@@ -550,12 +533,13 @@ Match the data
 
 #pro session matchen (weil session eine hohe varianz hat nach dem matching)
 
+#match data with propensity scores and include session as exact matching
 match_obj <- matchit(sex ~ birthyear + total_service + total_traffic + party + important_office + session,
                      data = deu, method = "nearest", distance = "logit",
                      exact = "session", # Exaktes Matching auf 'session'
                      ratio = 1, replace = FALSE)
 
-# Generiere die gematchten Daten
+#get matched data
 matched_data <- match.data(match_obj)
 
 

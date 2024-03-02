@@ -9,7 +9,7 @@ library(stringr) #für word count
 library(ggplot2)
 library(tm)
 library(MatchIt)
-
+library(purrr)
 
 #save
 # write.csv(deu_html_text, file = "raw_data/deu_html_text.csv", row.names = FALSE)
@@ -23,11 +23,10 @@ library(MatchIt)
 # deu_traffic <- get_traffic(legislature = "deu")
 
 
-deu_political <- read.csv("raw_data/deu_political.csv")
-deu_traffic <- read.csv("raw_data/deu_traffic.csv")
-
+deu_political <- read.csv("deu_political.csv")
+deu_traffic <- read.csv("deu_traffic.csv")
 deu_text <- read.csv("deu_text.csv")
-deu_html_text <- read.csv("raw_data/deu_html_text.csv")
+#deu_html_text <- read.csv("deu_html_text.csv")
 
 #doppelte sessions: nur älteste behalten und service aufaddieren
 deu_political <- deu_political %>%
@@ -68,8 +67,6 @@ extract_content <- function(text) {
 }
 
 
-library(dplyr)
-library(tidyverse)
 
 
 # Funktion auf jede Zeile in der Spalte "Text" anwenden und in neuer Spalte "extracted_text" speichern
@@ -99,23 +96,23 @@ de_text_pipeline <- function(page_name) {
 }
 
 ##html text
-de_html_pipeline <- function(page_name) {
-  Sys.sleep(runif(1, 1, 2))
-  
-  # Überprüfen, ob page_name fehlt
-  if (is.na(page_name) || page_name == "") {
-    return("Kein Wikipedia-Seitenname angegeben oder fehlend.")
-  }
-  
-  # Versuchen, Wikipedia-Inhalt abzurufen
-  tryCatch({
-    wp_content <- WikipediR::page_content("de", "wikipedia", page_name = page_name)
-    html_content <- wp_content$parse$text$`*`
-    return(html_content)
-  }, error = function(e) {
-    return(paste("Fehler beim Abrufen des Inhalts für die Seite:", page_name))
-  })
-}
+# de_html_pipeline <- function(page_name) {
+#   Sys.sleep(runif(1, 1, 2))
+#   
+#   # Überprüfen, ob page_name fehlt
+#   if (is.na(page_name) || page_name == "") {
+#     return("Kein Wikipedia-Seitenname angegeben oder fehlend.")
+#   }
+#   
+#   # Versuchen, Wikipedia-Inhalt abzurufen
+#   tryCatch({
+#     wp_content <- WikipediR::page_content("de", "wikipedia", page_name = page_name)
+#     html_content <- wp_content$parse$text$`*`
+#     return(html_content)
+#   }, error = function(e) {
+#     return(paste("Fehler beim Abrufen des Inhalts für die Seite:", page_name))
+#   })
+# }
 
 
 
@@ -149,16 +146,16 @@ clean_data <- function(df) {
   #df$plain_text <- str_remove_all(df$plain_text, "\\..*?\\{.*?\\}")
 
   # Initialize counters for removal reasons
-  removal_reason_redirect <- sum(grepl("^(Redirect to:|Weiterleitung nach:|Rediriger vers:|Redirige a:|Přesměrování na:)", df$text, ignore.case = TRUE))
-  removal_reason_refering_page <- sum(grepl("may refer to:|ist der Name folgender Personen:|Cette page d'homonymie répertorie différentes personnes|může být:", df$text, ignore.case = TRUE))
-  removal_reason_not_found <- sum(grepl("^(Error fetching content for page:|No Wikipedia page name provided or missing|Es wurde kein Wikipedia-Seitenname angegeben)", df$text, ignore.case = TRUE))
+  removal_reason_redirect <- sum(grepl("^(Redirect to:|Weiterleitung nach:|Rediriger vers:|Redirige a:|Přesměrování na:)", df$plain_text, ignore.case = TRUE))
+  removal_reason_refering_page <- sum(grepl("may refer to:|ist der Name folgender Personen:|Cette page d'homonymie répertorie différentes personnes|může být:", df$plain_text, ignore.case = TRUE))
+  removal_reason_not_found <- sum(grepl("^(Error fetching content for page:|No Wikipedia page name provided or missing|Es wurde kein Wikipedia-Seitenname angegeben)", df$plain_text, ignore.case = TRUE))
   
   
   # Filter rows based on specific conditions
   df <- df %>%
-    filter(!grepl("^(Redirect to:|Weiterleitung nach:|Rediriger vers:|Redirige a:|Přesměrování na:)", text, ignore.case = TRUE) &
-             !grepl("may refer to:|ist der Name folgender Personen:|Cette page d'homonymie répertorie différentes personnes|může být:", text, ignore.case = TRUE) &
-             !grepl("Error fetching content for page:|No Wikipedia page name provided or missing|Es wurde kein Wikipedia-Seitenname angegeben", text, ignore.case = TRUE))
+    filter(!grepl("^(Redirect to:|Weiterleitung nach:|Rediriger vers:|Redirige a:|Přesměrování na:)", plain_text, ignore.case = TRUE) &
+             !grepl("may refer to:|ist der Name folgender Personen:|Cette page d'homonymie répertorie différentes personnes|může být:", plain_text, ignore.case = TRUE) &
+             !grepl("Error fetching content for page:|No Wikipedia page name provided or missing|Es wurde kein Wikipedia-Seitenname angegeben", plain_text, ignore.case = TRUE))
   
   # Calculate the number of rows removed
   rows_removed <- initial_rows - nrow(df)
@@ -178,9 +175,8 @@ clean_data <- function(df) {
 }
 
 
-#deu <- clean_data(deu_text)
-#deu <- deu_text
-deu_html <- clean_data(deu_html_text)
+deu <- clean_data(deu_text)
+#deu_html <- clean_data(deu_html_text)
 
 deu$birthyear <- substr(deu$birth, 1, 4)
 
@@ -211,8 +207,8 @@ deu <- deu[complete.cases(deu$sex), ]
 
 
 #data is missing not at random, so we need to impute it in some way - create a group for missing data 
-deu$religion[is.na(deu$religion)] <- "Unknown"
-deu$ethnicity[is.na(deu$ethnicity)] <- "Unknown"
+# deu$religion[is.na(deu$religion)] <- "Unknown"
+# deu$ethnicity[is.na(deu$ethnicity)] <- "Unknown"
 
 
 #binary
