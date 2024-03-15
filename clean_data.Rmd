@@ -1,0 +1,227 @@
+---
+title: "data_cleaning"
+author: "Hannah Schweren"
+date: "2024-03-15"
+output: html_document
+---
+
+Skript to clean the data and prepare it for the further analysis
+
+
+necessary packages
+```{r}
+library(legislatoR)
+library(WikipediR)
+library(rvest)
+library(dplyr)
+```
+
+
+load the raw data
+```{r}
+deu_political <- read.csv("data/raw/deu_political.csv")
+deu_traffic <- read.csv("data/raw/deu_traffic.csv")
+deu_text <- read.csv("data/raw/deu_text.csv")
+deu_office <- read.csv("data/raw/deu_offices.csv")
+
+
+```
+
+Necessary functions
+```{r}
+
+# function to extract "live" or "party/career" section
+extract_content <- function(text, section = 1) {
+  tryCatch({
+    parts <- str_split(text, "\\[Bearbeiten \\| Quelltext bearbeiten\\]")[[1]]
+    
+    if (length(parts) > section) {
+      content_between = parts[section]
+      paragraph_positions <- str_locate_all(content_between, "\n\n")[[1]][,1]
+      
+      if (length(paragraph_positions) > 0) {
+        last_paragraph_pos <- max(paragraph_positions, na.rm = TRUE)
+        return(substr(content_between, 1, last_paragraph_pos))
+      } else {
+        return(content_between)
+      }
+    } else {
+      return(NA)
+    }
+  }, error = function(e) { 
+    NA 
+  })
+}
+
+###################################################################################################
+
+#function to clean the aquired text data
+
+clean_data <- function(df) {
+  initial_rows <- nrow(df)
+  
+  # Remove CSS-like structures
+  #df$plain_text <- str_remove_all(df$plain_text, "\\..*?\\{.*?\\}")
+
+  # Initialize counters for removal reasons
+  removal_reason_redirect <- sum(grepl("^(Redirect to:|Weiterleitung nach:|Rediriger vers:|Redirige a:|Přesměrování na:)", df$plain_text, ignore.case = TRUE))
+  removal_reason_refering_page <- sum(grepl("may refer to:|ist der Name folgender Personen:|Cette page d'homonymie répertorie différentes personnes|může být:", df$plain_text, ignore.case = TRUE))
+  removal_reason_not_found <- sum(grepl("^(Error fetching content for page:|No Wikipedia page name provided or missing|Es wurde kein Wikipedia-Seitenname angegeben)", df$plain_text, ignore.case = TRUE))
+  
+  
+  # Filter rows based on specific conditions
+  df <- df %>%
+    filter(!grepl("^(Redirect to:|Weiterleitung nach:|Rediriger vers:|Redirige a:|Přesměrování na:)", plain_text, ignore.case = TRUE) &
+             !grepl("may refer to:|ist der Name folgender Personen:|Cette page d'homonymie répertorie différentes personnes|může být:", plain_text, ignore.case = TRUE) &
+             !grepl("Error fetching content for page:|No Wikipedia page name provided or missing|Es wurde kein Wikipedia-Seitenname angegeben", plain_text, ignore.case = TRUE))
+  
+  # Calculate the number of rows removed
+  rows_removed <- initial_rows - nrow(df)
+  
+  # Print statistics about the removal reasons
+  cat("Removal reasons:\n")
+  cat("  - Redirect:", removal_reason_redirect, "\n")
+  cat("  - Reference Page:", removal_reason_refering_page, "\n")
+  cat("  - Not Found/no name_provided:", removal_reason_not_found, "\n")
+  
+  
+  # Create a message about the cleaning process
+  cat("Cleaned data: Removed", rows_removed, "rows.\n")
+  
+  # Return the cleaned data frame
+  return(df)
+}
+
+#############################################################################################################
+
+check_office <- function(wikidataid, offices_dataset) {
+  # Extrahiere die Zeile für den gegebenen wikidataid
+  office_row <- offices_dataset[offices_dataset$wikidataid == wikidataid, ]
+  
+  # Definiere die spezifischen Spalten, die geprüft werden sollen
+  specific_columns <- c("bundesminister", "federal_chancellor_of_germany", 
+                        "president_of_germany", "president_of_the_bundestag")
+  
+  # Füge zusätzlich alle Spalten hinzu, die mit "federal_minister" beginnen
+  federal_minister_columns <- grep("^federal_minister", names(offices_dataset), value = TRUE)
+  
+  # Kombiniere alle relevanten Spalten
+  relevant_columns <- c(specific_columns, federal_minister_columns)
+  
+  # Beachte, dass nur Spalten geprüft werden, die auch im DataFrame existieren
+  relevant_columns <- relevant_columns[relevant_columns %in% names(office_row)]
+  
+  # Prüfe, ob in einer der relevanten Spalten TRUE steht
+  # Stelle sicher, dass NA als FALSE behandelt wird
+  any_true <- any(office_row[relevant_columns] == TRUE, na.rm = TRUE)
+  
+  # Wenn keine relevanten Spalten existieren oder alle FALSE sind, wird FALSE zurückgegeben
+  return(ifelse(length(any_true) == 0, FALSE, any_true))
+}
+
+```
+
+
+clean the raw text data
+```{r}
+#clean the data
+deu <- clean_data(deu_text)
+
+
+
+```
+
+add the extracted sections and other variables that are needed for the analysis as new coloumns
+```{r}
+
+#extract "live" section
+deu <- deu %>%
+  mutate(extracted_text = map_chr(plain_text, ~possibly(extract_content, otherwise = NA_character_)(.x, section = 2)))
+
+
+#extract "party/career" section
+deu <- deu %>%
+  mutate(career_text = map_chr(plain_text, ~possibly(extract_content, otherwise = NA_character_)(.x, section = 3)))
+
+#################################################################################################################
+#the same procedure for the old version data
+
+#extract "live" section
+deu <- deu %>%
+  mutate(extracted_text_old = map_chr(old_text, ~possibly(extract_content, otherwise = NA_character_)(.x, section = 2)))
+
+
+#extract "party/career" section
+deu <- deu %>%
+  mutate(career_text_old = map_chr(old_text, ~possibly(extract_content, otherwise = NA_character_)(.x, section = 3)))
+
+```
+
+
+add more variables for further analysis
+```{r}
+#only keep oldest session if there are several sessions for one person and sum up service time
+deu_political <- deu_political %>%
+  group_by(pageid) %>%
+  mutate(
+    total_service = if (n() > 1) sum(service, na.rm = TRUE) else if_else(!is.na(service), service, 0)
+  ) %>%
+  slice(which.min(session)) %>%
+  ungroup()
+
+
+#sum of traffic data per politician
+total_traffic_per_politician <- deu_traffic %>%
+  group_by(pageid) %>%
+  summarise(total_traffic = sum(traffic))
+
+```
+
+```{r}
+
+deu_political$pageid <- as.integer(deu_political$pageid)
+deu <- left_join(deu, select(deu_political, pageid, session, party, total_service), by = "pageid")
+total_traffic_per_politician$pageid <- as.integer(total_traffic_per_politician$pageid)
+deu <- left_join(deu, select(total_traffic_per_politician, pageid, total_traffic), by = "pageid")
+
+deu$birthyear <- substr(deu$birth, 1, 4)
+
+
+```
+
+
+prepare matched data
+```{r}
+deu$birthyear <- as.numeric(as.character(deu$birthyear))
+
+
+
+#new variable to indicate if politician had an important office
+deu$important_office <- sapply(deu$wikidataid, check_office, offices_dataset = deu_offices)
+
+
+deu <- deu[complete.cases(deu$sex), ]
+deu$sex <- ifelse(deu$sex == "male", 0, 1)
+
+match_obj <- matchit(sex ~ birthyear + total_service + total_traffic + party + important_office + session,
+                     data = deu, method = "nearest", distance = "logit",
+                     exact = "session", # Exaktes Matching auf 'session'
+                     ratio = 1, replace = FALSE)
+
+#get matched data
+matched_data <- match.data(match_obj)
+
+deu$sex <- ifelse(deu$sex == 0, "male", "female")
+matched_data$sex <- ifelse(matched_data$sex == 0, "male", "female")
+
+
+```
+
+
+save cleanded and matched data
+```{r}
+write.csv(deu, file = "data/clean/deu.csv", row.names = FALSE)
+write.csv(matched_data, file = "data/clean/matched_data.csv", row.names = FALSE)
+
+```
+

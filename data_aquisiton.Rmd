@@ -1,0 +1,147 @@
+---
+title: "Data_aquisition"
+author: "Hannah Schweren"
+date: "2024-03-15"
+output: html_document
+---
+Skript to aquire all necessary data for the analysis
+
+
+
+necessary packages
+```{r}
+library(legislatoR)
+library(WikipediR)
+library(rvest)
+library(dplyr)
+#for old data:
+library(httr)
+library(jsonlite)
+library(rvest)
+library(pbapply)
+```
+
+Read in and save the CLD data for germany
+```{r}
+# deu_core <- get_core(legislature = "deu")
+# deu_political <- get_political(legislature = "deu")
+# deu_traffic <- get_traffic(legislature = "deu")
+# deu_offices <- get_office(legislature = "deu")
+
+# write.csv(deu_core, "data/raw/deu_core.csv", row.names = FALSE)
+# write.csv(deu_political, "data/raw/deu_political.csv", row.names = FALSE)
+# write.csv(deu_traffic, "data/raw/deu_traffic.csv", row.names = FALSE)
+# write.csv(deu_offices, "data/raw/deu_offices.csv", row.names = FALSE)
+```
+
+
+Necessary functions
+```{r}
+
+#function to aquire the wikipedia text
+
+de_text_pipeline <- function(page_name) {
+  Sys.sleep(runif(1, 1, 2))
+  
+  # Check if page_name is missing
+  if (is.na(page_name) || page_name == "") {
+    return("No Wikipedia page name provided or missing.")
+  }
+  
+  # Try fetching Wikipedia content
+  tryCatch({
+    wp_content <- WikipediR::page_content("de", "wikipedia", page_name = page_name)
+    plain_text <- html_text(read_html(wp_content$parse$text$`*`))
+    return(plain_text)
+  }, error = function(e) {
+    return(paste("Error fetching content for page:", page_name))
+  })
+}
+
+##########################################################################################################
+
+#function to get old versions of wikipedia pages
+get_wikipedia_content_from_past <- function(wikititle) {
+  
+  Sys.sleep(runif(1, 1, 2))
+  
+  rvest_session <- session(url, 
+                           add_headers(`From` = "hannahschweren@gmail.com", 
+                                       `User-Agent` = R.Version()$version.string))
+  
+  ten_years_ago <- format(Sys.Date() - 3650, "%Y%m%d%H%M%S")
+  url <- paste0("https://de.wikipedia.org/w/api.php?action=query&prop=revisions&titles=", 
+                wikititle, "&rvlimit=1&rvdir=older&rvstart=", ten_years_ago, 
+                "&format=json&formatversion=2")
+  
+  response <- GET(url)
+  response_content <- content(response, "text", encoding = "UTF-8")
+  parsed_content <- fromJSON(response_content)
+  
+  # Extrahiere die revisions_id
+  revision_id <- parsed_content$query$pages$revisions[[1]]$revid
+  
+  content_url <- paste0("https://de.wikipedia.org/w/api.php?action=parse&oldid=", 
+                        revision_id, "&format=json&prop=text")
+  
+  content_response <- GET(content_url)
+  content_response_content <- content(content_response, "text", encoding = "UTF-8")
+  parsed_content_response <- fromJSON(content_response_content)
+  
+  # Extrahiere den HTML-Inhalt
+  html_content <- parsed_content_response$parse$text$`*`
+  html_doc <- read_html(html_content)
+  
+  # Extrahiere den reinen Text
+  plain_text <- html_text(html_doc)
+  
+  return(plain_text)
+}
+
+apply_function_with_progress <- function(df) {
+  df$old_text <- pblapply(df$wikititle, function(title) {
+    tryCatch({
+      get_wikipedia_content_from_past(title)
+    }, error = function(e) {
+      NA  # Setzen Sie NA oder eine geeignete Nachricht, wenn ein Fehler auftritt
+    })
+  })
+  return(df)
+}
+
+```
+
+
+apply function to the German CLD dataset
+```{r}
+
+# aquire full wiki text per politician
+# deu_text <- deu_core %>%
+#   mutate(plain_text = sapply(wikititle, de_text_pipeline))
+
+###################################################################################################################
+
+#apply functions to get old versions of wikipedia pages
+
+
+
+# deu_text <- apply_function_with_progress(deu_text)
+# 
+# deu_text$old_text <- sapply(deu_text_old$old_text, function(x) {
+#   if (is.list(x)) {
+#     paste(unlist(x), collapse=", ")
+#   } else {
+#     x
+#   }
+# })
+
+```
+
+save the raw data
+```{r}
+#write.csv(deu_text, file = "data/raw/deu_text.csv", row.names = FALSE)
+#deu_text <- read.csv("deu_text.csv")
+
+```
+
+
