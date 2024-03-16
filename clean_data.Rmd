@@ -4,7 +4,9 @@ author: "Hannah Schweren"
 date: "2024-03-15"
 output: html_document
 ---
-
+```{r setup}
+knitr::opts_knit$set(root.dir = '/Users/hannahschweren/Documents/Zukunft/Master/drittes semester/thesis/Code')
+```
 Skript to clean the data and prepare it for the further analysis
 
 
@@ -14,6 +16,9 @@ library(legislatoR)
 library(WikipediR)
 library(rvest)
 library(dplyr)
+library(purrr)
+library(tm)
+library(MatchIt)
 ```
 
 
@@ -197,7 +202,7 @@ deu$birthyear <- as.numeric(as.character(deu$birthyear))
 
 
 #new variable to indicate if politician had an important office
-deu$important_office <- sapply(deu$wikidataid, check_office, offices_dataset = deu_offices)
+deu$important_office <- sapply(deu$wikidataid, check_office, offices_dataset = deu_office)
 
 
 deu <- deu[complete.cases(deu$sex), ]
@@ -220,8 +225,8 @@ matched_data$sex <- ifelse(matched_data$sex == 0, "male", "female")
 
 save cleanded and matched data
 ```{r}
-write.csv(deu, file = "data/clean/deu.csv", row.names = FALSE)
-write.csv(matched_data, file = "data/clean/matched_data.csv", row.names = FALSE)
+# write.csv(deu, file = "data/clean/deu.csv", row.names = FALSE)
+# write.csv(matched_data, file = "data/clean/matched_data.csv", row.names = FALSE)
 
 ```
 
