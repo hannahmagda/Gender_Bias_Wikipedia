@@ -1,0 +1,371 @@
+---
+title: "Data Report"
+author: "Hannah Schweren"
+date: "2024-01-24"
+output:
+  html_document:
+      df_print: paged
+  pdf_document: default
+---
+
+```{r}
+#load necessary packages
+
+library(rvest)
+library(dplyr)
+library(stringr) #für word count
+library(ggplot2)
+library(legislatoR)
+```
+
+# Data import
+
+After acquiring the data from the CLD containing the "wikititle", I can use this to scrape the Wikipedia articles. I subsetted the data, only focusing on politicians that are still alive (death = NA) as I consider those politicians more relevant for my analysis, instead of including also rather historical figures.
+```{r}
+
+#import raw data 
+
+#raw data was acquired using the following code (using France as an example)
+# fr_core <-  get_core((legislature = "fra"))
+# fr_core_alive <- fr_core %>% filter(is.na(death))
+
+###text aquisition german (using german as example)
+
+# de_text_pipeline <- function(page_name) {
+#   Sys.sleep(runif(1, 1, 2))
+#   
+#   # Check if page_name is missing
+#   if (is.na(page_name) || page_name == "") {
+#     return("No Wikipedia page name provided or missing.")
+#   }
+#   
+#   # Try fetching Wikipedia content
+#   tryCatch({
+#     wp_content <- WikipediR::page_content("de", "wikipedia", page_name = page_name)
+#     plain_text <- html_text(read_html(wp_content$parse$text$`*`))
+#     return(plain_text)
+#   }, error = function(e) {
+#     return(paste("Error fetching content for page:", page_name))
+#   })
+# }
+
+#read in data
+
+cze_alive_text <- read.csv("raw_data/cze_alive_text.csv")
+
+deu_alive_text <- read.csv("raw_data/deu_alive_text.csv")
+
+fr_alive_text <- read.csv("raw_data/fr_alive_text.csv")
+
+usa_alive_text <- read.csv("raw_data/usa_alive_text.csv")
+
+gbr_alive_text <- read.csv("raw_data/gbr_alive_text.csv")
+
+sco_alive_text <- read.csv("raw_data/sco_alive_text.csv")
+
+irl_alive_text <- read.csv("raw_data/irl_alive_text.csv")
+
+esp_alive_text <- read.csv("raw_data/esp_alive_text.csv")
+
+can_alive_text <- read.csv("raw_data/can_alive_text.csv")
+
+aut_alive_text <- read.csv("raw_data/aut_alive_text.csv") 
+
+```
+
+# Functions
+```{r}
+# Necessary functions for the following data preprocessing
+
+clean_data <- function(df) {
+  initial_rows <- nrow(df)
+  
+  # Remove CSS-like structures
+  df$plain_text <- str_remove_all(df$plain_text, "\\..*?\\{.*?\\}")
+  
+  # Initialize counters for removal reasons
+  removal_reason_redirect <- sum(grepl("^(Redirect to:|Weiterleitung nach:|Rediriger vers:|Redirige a:|Přesměrování na:)", df$plain_text, ignore.case = TRUE))
+  removal_reason_refering_page <- sum(grepl("may refer to:|ist der Name folgender Personen:|Cette page d'homonymie répertorie différentes personnes|může být:", df$plain_text, ignore.case = TRUE))
+  removal_reason_not_found <- sum(grepl("^(Error fetching content for page:|No Wikipedia page name provided or missing|Es wurde kein Wikipedia-Seitenname angegeben)", df$plain_text, ignore.case = TRUE))
+  
+  
+  # Filter rows based on condition
+  df <- df %>%
+    filter(!grepl("^(Redirect to:|Weiterleitung nach:|Rediriger vers:|Redirige a:|Přesměrování na:)", plain_text, ignore.case = TRUE) &
+             !grepl("may refer to:|ist der Name folgender Personen:|Cette page d'homonymie répertorie différentes personnes|může být:", plain_text, ignore.case = TRUE) &
+             !grepl("Error fetching content for page:|No Wikipedia page name provided or missing|Es wurde kein Wikipedia-Seitenname angegeben", plain_text, ignore.case = TRUE))
+  
+  # Calculate the number of rows removed
+  rows_removed <- initial_rows - nrow(df)
+  
+  # Print removal reasons
+  cat("Removal reasons:\n")
+  cat("  - Redirect:", removal_reason_redirect, "\n")
+  cat("  - Reference Page:", removal_reason_refering_page, "\n")
+  cat("  - Not Found/no name_provided:", removal_reason_not_found, "\n")
+  
+  
+  cat("Cleaned data: Removed", rows_removed, "rows.\n")
+  
+  # Return the cleaned data frame
+  return(df)
+}
+
+
+traffic_metrics <- function(traffic_data) {
+  # Format the date
+  traffic_data$date <- format(traffic_data$date, "%Y-%m")
+  
+  # Total per politician
+  total_traffic_per_politician <- traffic_data %>%
+    group_by(pageid) %>%
+    summarise(total_traffic = sum(traffic))
+  
+  # Average per month per politician
+  average_traffic_per_politician <- total_traffic_per_politician %>%
+    mutate(average_traffic = total_traffic / n_distinct(traffic_data$date))
+  
+  # Convert pageid to numeric
+  average_traffic_per_politician$pageid <- as.numeric(average_traffic_per_politician$pageid)
+  
+  # Return the result
+  return(average_traffic_per_politician)
+}
+
+
+count_words <- function(text) {
+  words <- str_extract_all(text, "\\b\\w+\\b")[[1]]
+  return(length(words))
+}
+```
+
+  
+  the function to clean the data removes unreadable parts of the html format and leaves us with human readable text of the politician's Wikipedia article. Further, it removes datapoints that didn't succesfully retreive an article for reasons of redirects (name changes), missing Wikipedia pages ( no "wiki_title") or references pages ("may refer to...").
+
+
+
+# Data cleaning
+```{r}
+
+cze <- clean_data(cze_alive_text)
+
+fra <- clean_data(fr_alive_text)
+
+deu <- clean_data(deu_alive_text)
+
+usa <- clean_data(usa_alive_text)
+
+gbr <- clean_data(gbr_alive_text)
+
+irl <- clean_data(irl_alive_text)
+
+sco <- clean_data(sco_alive_text)
+
+esp <- clean_data(esp_alive_text)
+
+aut <- clean_data(aut_alive_text)
+
+can <- clean_data(can_alive_text)
+```
+
+  
+  I am using  "wikititle" as variable to use the API, which leads to some problems with redirects, when politicians changed their name after the creation of the CLD. Unfortunately, scraping via the "pageid" did not work out. The number of redirects seems still acceptable for me. A bigger problem is raised in the british and spanish data, where a lot of missing data occurs because of the page not being found. This is due to missing "wikititle" and "pageid", which means that these politicians don't have a unique Wikipedia page or Wikidata ID. To be discussed if this poses a problem for the further analysis of these countries' politicians.
+
+
+# Data exploration
+
+```{r}
+#combine all data in one df
+
+all_countries <- rbind(deu, cze, fra, usa, sco, irl, can, aut, esp, gbr)
+all_countries <- all_countries%>%
+  filter(!is.na(sex))
+```
+
+
+  
+  First, let's have a look at the dataset, containing all countries and see how it is setup. 
+
+```{r}
+head(all_countries)
+```
+
+```{r}
+summary(all_countries)
+```
+
+```{r}
+str(all_countries)
+```
+
+
+
+```{r}
+
+#Plot the number of female/male politicians per country
+ggplot(all_countries, aes(x = sex, fill = sex)) +
+  geom_bar() +
+  facet_wrap(~country, scales = "free_y") +
+  labs(title = "Number of male/female politicians per country") +
+  xlab("sex") +
+  ylab("number") +
+  scale_fill_manual(values = c("male" = "blue", "female" = "pink")) +
+  theme_minimal() +
+  theme(legend.title = element_blank())
+```
+  
+  We can see, that female politicians, as it can be expected, are underrepresented in all countries. Still, it leaves us with a decent number of female politicians to be compared to the male politicians.
+
+
+Next, we want to have a look at the average monthly number of page views (traffic). This will be used to match female and male politicians in order to make them more comparable. Using this variable as matching variable is due to the hypothesis that "popularity" represents the primary confounder variable, when it comes to the length of texts and the number of edits. As a proxy variable, this measure ensures that the analysis only examines comparable men and women.
+
+```{r}
+
+
+# deu_traffic <- get_traffic(legislature = "deu")
+# deu_average_traffic <- traffic_metrics(deu_traffic)
+# deu <- left_join(deu, select(deu_average_traffic, pageid, average_traffic), by = "pageid")
+# 
+# fra_traffic <- get_traffic(legislature = "fra")
+# fra_average_traffic <- traffic_metrics(fra_traffic)
+# fra <- left_join(fra, select(fra_average_traffic, pageid, average_traffic), by = "pageid")
+# 
+# #error
+# gbr_traffic <- get_traffic(legislature = "gbr")
+# gbr_average_traffic <- traffic_metrics(gbr_traffic)
+# gbr$pageid <- as.character(gbr$pageid)
+# gbr_average_traffic$pageid <- as.character(gbr_average_traffic$pageid)
+# gbr <- left_join(gbr, select(gbr_average_traffic, pageid, average_traffic), by = "pageid")
+# gbr$pageid <- as.numeric(gbr$pageid)
+# 
+# can_traffic <- get_traffic(legislature = "can")
+# can_average_traffic <- traffic_metrics(can_traffic)
+# can <- left_join(can, select(can_average_traffic, pageid, average_traffic), by = "pageid")
+# 
+# aut_traffic <- get_traffic(legislature = "aut")
+# aut_average_traffic <- traffic_metrics(aut_traffic)
+# aut <- left_join(aut, select(aut_average_traffic, pageid, average_traffic), by = "pageid")
+# 
+# 
+# # introduces NAs exclusively, need to look into that
+# esp_traffic <- get_traffic(legislature = "esp")
+# esp_average_traffic <- traffic_metrics(esp_traffic)
+# esp$pageid <- as.character(esp$pageid)
+# esp_average_traffic$pageid <- as.character(esp_average_traffic$pageid)
+# esp <- left_join(esp, select(esp_average_traffic, pageid, average_traffic), by = "pageid")
+# esp$pageid <- as.numeric(esp$pageid)
+# 
+# cze_traffic <- get_traffic(legislature = "cze")
+# cze_average_traffic <- traffic_metrics(cze_traffic)
+# cze <- left_join(cze, select(cze_average_traffic, pageid, average_traffic), by = "pageid")
+# 
+# sco_traffic <- get_traffic(legislature = "sco")
+# sco_average_traffic <- traffic_metrics(sco_traffic)
+# sco <- left_join(sco, select(sco_average_traffic, pageid, average_traffic), by = "pageid")
+# 
+# irl_traffic <- get_traffic(legislature = "irl")
+# irl_average_traffic <- traffic_metrics(irl_traffic)
+# irl <- left_join(irl, select(irl_average_traffic, pageid, average_traffic), by = "pageid")
+# 
+# usa_house_traffic <- get_traffic(legislature = "usa_house")
+# usa_senate_traffic <- get_traffic(legislature = "usa_senate")
+# 
+# usa_traffic <- bind_rows(usa_house_traffic, usa_senate_traffic)
+# usa_average_traffic <- traffic_metrics(usa_traffic)
+# usa <- left_join(usa, select(usa_average_traffic, pageid, average_traffic), by = "pageid")
+
+
+
+
+
+```
+
+
+Let's get some insights on the average traffic variable for all the countries by looking at the top pages and creating a boxplot per country and per sex 
+```{r}
+
+# all_countries_traffic <- rbind(deu, cze, fra, usa, sco, irl, can, aut, esp, gbr)
+
+#remove !is.na(sex)) as in some countries there are wikipedia pages of parties included, also, this analysis is based on a binary classification of gender for reasons of simplicity
+
+# all_countries_traffic <- all_countries_traffic%>%
+#   filter(!is.na(sex))
+# 
+# write.csv(all_countries_traffic, file = "clean_data/all_countries_traffic", row.names = FALSE)
+
+all_countries_traffic <- read.csv("clean_data/all_countries_traffic")
+
+
+```
+
+  
+  
+First, let's look at the top 3 politicians for average monthly traffic per country as a sanity check and to get an idea of the data:
+```{r}
+all_countries_traffic %>%
+  group_by(country) %>%
+  arrange(desc(average_traffic)) %>%
+  slice_head(n = 3)
+
+
+```
+
+  
+Let's plot the word count per gender/country to get an overview. i visualized this using a boxplot, the second one restricted the y axis, excluding some  outliers, so that we can better see the quartiles' distribution of the data.
+```{r}
+ggplot(all_countries_traffic, aes(x = sex, y = average_traffic, color = sex)) +
+  geom_boxplot() +
+  facet_wrap(~country, scales = "free_y") +
+  labs(title = "Distribution of Average Traffic per Country and Sex",
+       x = "Sex",
+       y = "Average Traffic") +
+  scale_color_manual(values = c("male" = "blue", "female" = "pink")) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+
+```
+  
+Zooming in, to be able to see the quartiles, leaving out some outliers:
+```{r}
+#zoom in, focusing on quartiles, ignoring outliers
+ggplot(all_countries_traffic, aes(x = sex, y = average_traffic, color = sex)) +
+  geom_boxplot() +
+  facet_wrap(~country, scales = "free_y") +
+  labs(title = "Distribution of Average Traffic per Country and Sex (restricted Y-axis)",
+       x = "Sex",
+       y = "Average Traffic") +
+  scale_color_manual(values = c("male" = "blue", "female" = "pink")) +
+  theme_minimal() +
+  theme(legend.position = "none") +
+  ylim(1, 1500)  # Adjust the y-axis limits
+```
+  
+  
+Now, let's have a look at the word counts for female and male politicians (for the further analysis, this data will be matched on confounding aspect of popularity)
+```{r}
+#get word count
+
+all_countries$word_count <- sapply(all_countries$plain_text, count_words)
+
+
+avg_word_count <- all_countries %>%
+  group_by(country, sex) %>%
+  summarise(avg_word_count = mean(word_count))
+
+ggplot(avg_word_count, aes(x = sex, y = avg_word_count, fill = sex)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  facet_wrap(~ country, scales = "free_y") +
+  labs(title = "Average Word Count per Sex in Each Country",
+       x = "Sex",
+       y = "Average Word Count") +
+  scale_fill_manual(values = c("male" = "blue", "female" = "pink")) +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+  
+Looking at the plots, the word count and the average number of traffic does not seem to be very different for males/females. Still, I suggest using average traffic as matching data to keep a balanced dataset for the analysis and exclude possible cofounders. 
+
+  
+  
+  
