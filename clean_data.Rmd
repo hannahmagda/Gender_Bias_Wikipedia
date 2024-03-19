@@ -5,7 +5,7 @@ date: "2024-03-15"
 output: html_document
 ---
 ```{r setup}
-knitr::opts_knit$set(root.dir = '/Users/hannahschweren/Documents/Zukunft/Master/drittes semester/thesis/Code')
+knitr::opts_knit$set(root.dir = '/Users/hannahschweren/Documents/Zukunft/Master/drittes semester/thesis/Code/thesis')
 ```
 Skript to clean the data and prepare it for the further analysis
 
@@ -160,6 +160,16 @@ deu <- deu %>%
 deu <- deu %>%
   mutate(career_text_old = map_chr(old_text, ~possibly(extract_content, otherwise = NA_character_)(.x, section = 3)))
 
+
+deu <- deu %>%
+  mutate(text_length_live = nchar(extracted_text))
+
+deu <- deu %>%
+  mutate(text_length_career = nchar(career_text))
+
+deu <- deu %>%
+  mutate(text_length = nchar(plain_text))
+
 ```
 
 
@@ -225,8 +235,8 @@ matched_data$sex <- ifelse(matched_data$sex == 0, "male", "female")
 
 save cleanded and matched data
 ```{r}
-# write.csv(deu, file = "data/clean/deu.csv", row.names = FALSE)
-# write.csv(matched_data, file = "data/clean/matched_data.csv", row.names = FALSE)
+write.csv(deu, file = "data/clean/deu.csv", row.names = FALSE)
+write.csv(matched_data, file = "data/clean/matched_data.csv", row.names = FALSE)
 
 ```
 

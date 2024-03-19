@@ -4,6 +4,11 @@ author: "Hannah Schweren"
 date: "2024-03-15"
 output: html_document
 ---
+
+```{r setup}
+knitr::opts_knit$set(root.dir = '/Users/hannahschweren/Documents/Zukunft/Master/drittes semester/thesis/Code/thesis')
+```
+
 Skript to aquire all necessary data for the analysis
 
 
