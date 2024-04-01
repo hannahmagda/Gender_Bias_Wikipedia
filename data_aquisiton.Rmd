@@ -32,11 +32,15 @@ Read in and save the CLD data for germany
 # deu_political <- get_political(legislature = "deu")
 # deu_traffic <- get_traffic(legislature = "deu")
 # deu_offices <- get_office(legislature = "deu")
+# deu_history <- get_history(legislature = "deu")
+
 
 # write.csv(deu_core, "data/raw/deu_core.csv", row.names = FALSE)
 # write.csv(deu_political, "data/raw/deu_political.csv", row.names = FALSE)
 # write.csv(deu_traffic, "data/raw/deu_traffic.csv", row.names = FALSE)
 # write.csv(deu_offices, "data/raw/deu_offices.csv", row.names = FALSE)
+# 9write.csv(deu_history, "data/raw/deu_history.csv", row.names = FALSE)
+
 ```
 
 
@@ -114,6 +118,8 @@ apply_function_with_progress <- function(df) {
   return(df)
 }
 
+
+
 ```
 
 
@@ -141,6 +147,9 @@ apply function to the German CLD dataset
 # })
 
 ```
+
+
+
 
 save the raw data
 ```{r}

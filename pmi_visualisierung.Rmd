@@ -1,0 +1,386 @@
+---
+title: "vidulaisierung_pmi"
+author: "Hannah Schweren"
+date: "2024-03-27"
+output: html_document
+---
+
+```{r setup}
+knitr::opts_knit$set(root.dir = '/Users/hannahschweren/Documents/Zukunft/Master/drittes semester/thesis/Code/thesis')
+```
+
+packages
+```{r}
+library(ggplot2)
+library(dplyr)
+library(purrr)
+```
+
+
+```{r}
+#load data 
+
+deu_life_female_cat <- read.csv("data/annotated_data/deu_life_female_cat.csv", sep = ";")
+deu_life_male_cat <- read.csv("data/annotated_data/deu_life_male_cat.csv", sep = ";")
+
+matched_life_female_cat <- read.csv("data/annotated_data/matched_life_female_cat.csv", sep = ";")
+matched_life_male_cat <- read.csv("data/annotated_data/matched_life_male_cat.csv", sep = ";")
+
+deu_career_female_cat <- read.csv("data/annotated_data/deu_career_female_cat.csv", sep = ";")
+deu_career_male_cat <- read.csv("data/annotated_data/deu_career_male_cat.csv", sep = ";")
+
+matched_career_female_cat <- read.csv("data/annotated_data/matched_career_female_cat.csv", sep = ";")
+matched_career_male_cat <- read.csv("data/annotated_data/matched_career_male_cat.csv", sep = ";")
+
+
+#parties
+
+afd_life_female_cat <- read.csv("data/annotated_data/afd_life_female_cat.csv", sep = ";")
+afd_life_male_cat <- read.csv("data/annotated_data/afd_life_male_cat.csv", sep = ";")
+
+afd_career_female_cat <- read.csv("data/annotated_data/afd_career_female_cat.csv", sep = ";")
+afd_career_male_cat <- read.csv("data/annotated_data/afd_career_male_cat.csv", sep = ";")
+
+cdu_csu_life_female_cat <- read.csv("data/annotated_data/cdu_csu_life_female_cat.csv", sep = ";")
+cdu_csu_life_male_cat <- read.csv("data/annotated_data/cdu_csu_life_male_cat.csv", sep = ";")
+
+cdu_csu_career_female_cat <- read.csv("data/annotated_data/cdu_csu_career_female_cat.csv", sep = ";")
+cdu_csu_career_male_cat <- read.csv("data/annotated_data/cdu_csu_career_male_cat.csv", sep = ";")
+
+spd_life_female_cat <- read.csv("data/annotated_data/spd_life_female_cat.csv", sep = ";")
+spd_life_male_cat <- read.csv("data/annotated_data/spd_life_male_cat.csv", sep = ";")
+
+spd_career_female_cat <- read.csv("data/annotated_data/spd_career_female_cat.csv", sep = ";")
+spd_career_male_cat <- read.csv("data/annotated_data/spd_career_male_cat.csv", sep = ";")
+
+fdp_life_female_cat <- read.csv("data/annotated_data/fdp_life_female_cat.csv", sep = ";")
+fdp_life_male_cat <- read.csv("data/annotated_data/fdp_life_male_cat.csv", sep = ";")
+
+fdp_career_female_cat <- read.csv("data/annotated_data/fdp_career_female_cat.csv", sep = ";")
+fdp_career_male_cat <- read.csv("data/annotated_data/fdp_career_male_cat.csv", sep = ";")
+
+greens_life_female_cat <- read.csv("data/annotated_data/greens_life_female_cat.csv", sep = ";")
+greens_life_male_cat <- read.csv("data/annotated_data/greens_life_male_cat.csv", sep = ";")
+
+greens_career_female_cat <- read.csv("data/annotated_data/greens_career_female_cat.csv", sep = ";")
+greens_career_male_cat <- read.csv("data/annotated_data/greens_career_male_cat.csv", sep = ";")
+
+
+left_life_female_cat <- read.csv("data/annotated_data/left_life_female_cat.csv", sep = ";")
+left_life_male_cat <- read.csv("data/annotated_data/left_life_male_cat.csv", sep = ";")
+
+left_career_female_cat <- read.csv("data/annotated_data/left_career_female_cat.csv", sep = ";")
+left_career_male_cat <- read.csv("data/annotated_data/left_career_male_cat.csv", sep = ";")
+
+```
+
+
+
+mit facet - der hier funktioniert mit geminsamen achsen!
+```{r}
+# Angepasste Funktion, die zusätzliche Argumente für die Anzeigekontrolle akzeptiert
+plot_with_fisher_test <- function(df_female, df_male, plot_title, show_legend = TRUE, show_axes_labels = TRUE) {
+  # Kombiniere die DataFrames und füge eine 'sex' Spalte hinzu
+  df_female$sex <- 'female'
+  df_male$sex <- 'male'
+  combined_df <- rbind(df_female, df_male)
+  
+  # Berechne die Anteile
+  category_proportions <- combined_df %>%
+    group_by(sex, category) %>%
+    summarise(count = n(), .groups = 'drop') %>%
+    group_by(sex) %>%
+    mutate(proportion = count / sum(count))
+  
+  # Erstelle eine Kontingenztafel
+  contingency <- table(combined_df$sex, combined_df$category)
+  
+  # Führe den Fisher-Test durch
+  fisher_test_result <- fisher.test(contingency)
+  
+  # Erzeuge den Plot
+  p <- ggplot(category_proportions, aes(x = sex, y = proportion, fill = category)) +
+    geom_bar(stat = "identity", position = "stack") +
+    theme_minimal() +
+    labs(x = if(show_axes_labels) "Geschlecht" else "", 
+         y = if(show_axes_labels) "Anteil" else "", 
+         fill = "Kategorie",
+         title = paste(plot_title, "\np-Wert des Fisher-Tests:", round(fisher_test_result$p.value, 4))) +
+    scale_fill_manual(values = c("#a6611a","#dfc27d",'#80cdc1',"#018571"))
+  
+  # Entscheide basierend auf 'show_legend', ob die Legende angezeigt werden soll
+  if(!show_legend) {
+    p <- p + theme(legend.position = "none")
+  }
+  
+  return(p)
+}
+
+# Nun können Sie die Funktion mit den neuen Parametern aufrufen
+library(patchwork)
+
+plot1 <- plot_with_fisher_test(deu_life_female_cat, deu_life_male_cat, "whole sample, life section", TRUE, FALSE)
+plot2 <- plot_with_fisher_test(matched_life_female_cat, matched_life_male_cat, "Matched data, life section", FALSE, FALSE)
+plot3 <- plot_with_fisher_test(deu_career_female_cat, deu_career_male_cat, "whole sample, career section", FALSE, FALSE)
+plot4 <- plot_with_fisher_test(matched_career_female_cat, matched_career_male_cat, "Matched data, career section", FALSE, FALSE)
+
+# Kombinieren Sie die Plots mit 'patchwork' und sammeln Sie die Legenden
+plot_layout <- (plot1 + plot2 + plot3 + plot4) + 
+               plot_layout(guides = "collect") + xlab(NULL) & theme(plot.margin = margin(5.5, 5.5, 0, 5.5))
+
+# Drucken Sie das Layout, um es anzuzeigen
+
+gt <- patchwork::patchworkGrob(plot_layout)
+
+
+gridExtra::grid.arrange(gt, left = "share", bottom = "gender")
+```
+
+Table matched/unmatched leben/career section
+```{r}
+library(knitr)
+library(kableExtra)
+library(dplyr)
+library(tidyr)
+
+
+  # Füge den Dataframes Geschlecht und Zeitperioden hinzu
+  deu_life_female_cat$sex <- 'female'
+  deu_life_male_cat$sex <- 'male'
+  matched_life_female_cat$sex <- 'female'
+  matched_life_male_cat$sex <- 'male'
+  
+  deu_life_female_cat$subgroup <- 'whole sample, life'
+  deu_life_male_cat$subgroup <- 'whole sample, life'
+  matched_life_female_cat$subgroup <- 'matched, life'
+  matched_life_male_cat$subgroup <- 'matched, life'
+  
+   # Füge den Dataframes Geschlecht und Zeitperioden hinzu
+  deu_career_female_cat$sex <- 'female'
+  deu_career_male_cat$sex <- 'male'
+  matched_career_female_cat$sex <- 'female'
+  matched_career_male_cat$sex <- 'male'
+  
+  deu_career_female_cat$subgroup <- 'whole sample, career'
+  deu_career_male_cat$subgroup <- 'whole sample, career'
+  matched_career_female_cat$subgroup <- 'matched, career'
+  matched_career_male_cat$subgroup <- 'matched, career'
+  
+  # Kombiniere die Dataframes
+  combined_df <- rbind(deu_life_female_cat, deu_life_male_cat, matched_life_female_cat, matched_life_male_cat, deu_career_female_cat, deu_career_male_cat, matched_career_female_cat, matched_career_male_cat)
+  
+ p_values <- combined_df %>%
+  group_by(subgroup) %>%
+  summarise(contingency = list(table(sex, category)),
+            p_value = map_dbl(contingency, ~fisher.test(.)$p.value),
+            .groups = 'drop')
+ 
+ df_grouped <- combined_df %>%
+  group_by(subgroup, sex, category) %>%
+  summarise(count = n(), .groups = 'drop')
+
+df_grouped <- df_grouped %>%
+  left_join(p_values %>% select(subgroup, p_value), by = "subgroup")
+
+# Bereite Daten für die Tabelle vor
+df_wide <- df_grouped %>%
+  pivot_wider(names_from = category, values_from = count, values_fill = list(count = 0)) %>%
+  # Gruppiere nach subgroup und sex, um Duplikate von p_value zu entfernen
+  group_by(subgroup, sex) %>%
+  summarise(across(everything(), first), .groups = 'drop')
+
+df_final <- df_wide %>%
+  mutate(
+    `p-wert` = cell_spec(
+      ifelse(row_number() %% 2 == 1, ifelse(p_value < 0.05, paste0("<b>", round(p_value, 3), "*</b>"), round(p_value, 3)), " "),
+      "html", escape = FALSE
+    )
+  )
+
+
+df_final %>%
+  select(subgroup, `p-wert`, sex, F, R, G, O) %>%
+  arrange(subgroup, sex) %>%
+  kable("html", escape = FALSE) %>%  # Wichtig: escape = FALSE, um HTML zu rendern
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed")) %>%
+  collapse_rows(columns = 1, valign = "middle")
+
+```
+
+
+
+
+career code parties
+```{r}
+# Füge den Dataframes Geschlecht und Zeitperioden hinzu (Career zuerst)
+afd_career_female_cat$sex <- 'female'
+afd_career_male_cat$sex <- 'male'
+cdu_csu_career_female_cat$sex <- 'female'
+cdu_csu_career_male_cat$sex <- 'male'
+fdp_career_female_cat$sex <- 'female'
+fdp_career_male_cat$sex <- 'male'
+greens_career_female_cat$sex <- 'female'
+greens_career_male_cat$sex <- 'male'
+left_career_female_cat$sex <- 'female'
+left_career_male_cat$sex <- 'male'
+spd_career_female_cat$sex <- 'female'
+spd_career_male_cat$sex <- 'male'
+
+# Zuordnung der Untergruppen (Career zuerst)
+afd_career_female_cat$subgroup <- 'afd'
+afd_career_male_cat$subgroup <- 'afd'
+cdu_csu_career_female_cat$subgroup <- 'cdu/csu'
+cdu_csu_career_male_cat$subgroup <- 'cdu/csu'
+fdp_career_female_cat$subgroup <- 'fdp'
+fdp_career_male_cat$subgroup <- 'fdp'
+greens_career_female_cat$subgroup <- 'greens'
+greens_career_male_cat$subgroup <- 'greens'
+left_career_female_cat$subgroup <- 'left'
+left_career_male_cat$subgroup <- 'left'
+spd_career_female_cat$subgroup <- 'spd'
+spd_career_male_cat$subgroup <- 'spd'
+
+
+# Kombiniere die Dataframes
+combined_df <- rbind(
+  # Career-Gruppen zuerst
+  afd_career_female_cat, afd_career_male_cat,
+  cdu_csu_career_female_cat, cdu_csu_career_male_cat,
+  fdp_career_female_cat, fdp_career_male_cat,
+  greens_career_female_cat, greens_career_male_cat,
+  left_career_female_cat, left_career_male_cat,
+  spd_career_female_cat, spd_career_male_cat
+  )
+expected_categories <- c("F", "G", "R", "O") 
+
+# Sicherstellen, dass alle Kombinationen vorhanden sind und fehlende mit Nullen auffüllen
+combined_df_filled <- combined_df %>%
+  group_by(subgroup) %>%
+  # Achten Sie darauf, dass alle Kategorien und Geschlechter repräsentiert sind
+  complete(category = expected_categories, fill = list(Freq = 0)) %>%
+  ungroup()
+
+
+ p_values <- combined_df_filled %>%
+  group_by(subgroup) %>%
+  summarise(contingency = list(table(sex, category)),
+            p_value = map_dbl(contingency, ~fisher.test(.)$p.value),
+            .groups = 'drop')
+ 
+ df_grouped <- combined_df %>%
+  group_by(subgroup, sex, category) %>%
+  summarise(count = n(), .groups = 'drop')
+
+df_grouped <- df_grouped %>%
+  left_join(p_values %>% select(subgroup, p_value), by = "subgroup")
+
+# Bereite Daten für die Tabelle vor
+df_wide <- df_grouped %>%
+  pivot_wider(names_from = category, values_from = count, values_fill = list(count = 0)) %>%
+  # Gruppiere nach subgroup und sex, um Duplikate von p_value zu entfernen
+  group_by(subgroup, sex) %>%
+  summarise(across(everything(), first), .groups = 'drop')
+
+df_final <- df_wide %>%
+  mutate(
+    `p-wert` = cell_spec(
+      ifelse(row_number() %% 2 == 1, ifelse(p_value < 0.05, paste0("<b>", round(p_value, 3), "*</b>"), round(p_value, 3)), " "),
+      "html", escape = FALSE
+    )
+  )
+
+
+df_final %>%
+  select(subgroup, `p-wert`, sex, F, R, G, O) %>%
+  arrange(subgroup, sex) %>%
+  kable("html", escape = FALSE) %>%  # Wichtig: escape = FALSE, um HTML zu rendern
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed")) %>%
+  collapse_rows(columns = 1, valign = "middle")
+
+```
+
+life code parties
+```{r}
+# Füge den Dataframes Geschlecht und Zeitperioden hinzu (Life folgt)
+afd_life_female_cat$sex <- 'female'
+afd_life_male_cat$sex <- 'male'
+cdu_csu_life_female_cat$sex <- 'female'
+cdu_csu_life_male_cat$sex <- 'male'
+fdp_life_female_cat$sex <- 'female'
+fdp_life_male_cat$sex <- 'male'
+greens_life_female_cat$sex <- 'female'
+greens_life_male_cat$sex <- 'male'
+left_life_female_cat$sex <- 'female'
+left_life_male_cat$sex <- 'male'
+spd_life_female_cat$sex <- 'female'
+spd_life_male_cat$sex <- 'male'
+
+# Zuordnung der Untergruppen (Life folgt)
+afd_life_female_cat$subgroup <- 'afd'
+afd_life_male_cat$subgroup <- 'afd'
+cdu_csu_life_female_cat$subgroup <- 'cdu/csu'
+cdu_csu_life_male_cat$subgroup <- 'cdu/csu'
+fdp_life_female_cat$subgroup <- 'fdp'
+fdp_life_male_cat$subgroup <- 'fdp'
+greens_life_female_cat$subgroup <- 'greens'
+greens_life_male_cat$subgroup <- 'greens'
+left_life_female_cat$subgroup <- 'left'
+left_life_male_cat$subgroup <- 'left'
+spd_life_female_cat$subgroup <- 'spd'
+spd_life_male_cat$subgroup <- 'spd'
+
+combined_df <- rbind(afd_life_male_cat, afd_life_female_cat,
+  cdu_csu_life_male_cat, cdu_csu_life_female_cat,
+  fdp_life_male_cat, fdp_life_female_cat,
+  greens_life_male_cat, greens_life_female_cat, 
+  left_life_female_cat, left_life_male_cat,
+  spd_life_female_cat, spd_life_male_cat)
+
+expected_categories <- c("F", "G", "R", "O") 
+
+# Sicherstellen, dass alle Kombinationen vorhanden sind und fehlende mit Nullen auffüllen
+combined_df_filled <- combined_df %>%
+  group_by(subgroup) %>%
+  # Achten Sie darauf, dass alle Kategorien und Geschlechter repräsentiert sind
+  complete(category = expected_categories, fill = list(Freq = 0)) %>%
+  ungroup()
+
+
+ p_values <- combined_df_filled %>%
+  group_by(subgroup) %>%
+  summarise(contingency = list(table(sex, category)),
+            p_value = map_dbl(contingency, ~fisher.test(.)$p.value),
+            .groups = 'drop')
+ 
+ df_grouped <- combined_df %>%
+  group_by(subgroup, sex, category) %>%
+  summarise(count = n(), .groups = 'drop')
+
+df_grouped <- df_grouped %>%
+  left_join(p_values %>% select(subgroup, p_value), by = "subgroup")
+
+# Bereite Daten für die Tabelle vor
+df_wide <- df_grouped %>%
+  pivot_wider(names_from = category, values_from = count, values_fill = list(count = 0)) %>%
+  # Gruppiere nach subgroup und sex, um Duplikate von p_value zu entfernen
+  group_by(subgroup, sex) %>%
+  summarise(across(everything(), first), .groups = 'drop')
+
+df_final <- df_wide %>%
+  mutate(
+    `p-wert` = cell_spec(
+      ifelse(row_number() %% 2 == 1, ifelse(p_value < 0.05, paste0("<b>", round(p_value, 3), "*</b>"), round(p_value, 3)), " "),
+      "html", escape = FALSE
+    )
+  )
+
+
+df_final %>%
+  select(subgroup, `p-wert`, sex, F, R, G, O) %>%
+  arrange(subgroup, sex) %>%
+  kable("html", escape = FALSE) %>%  # Wichtig: escape = FALSE, um HTML zu rendern
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed")) %>%
+  collapse_rows(columns = 1, valign = "middle")
+
+```
+

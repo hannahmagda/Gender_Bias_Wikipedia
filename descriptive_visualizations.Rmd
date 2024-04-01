@@ -1,0 +1,342 @@
+---
+title: "descriptive_visualizations"
+author: "Hannah Schweren"
+date: "2024-03-28"
+output: html_document
+---
+```{r setup}
+knitr::opts_knit$set(root.dir = '/Users/hannahschweren/Documents/Zukunft/Master/drittes semester/thesis/Code/thesis')
+```
+
+```{r}
+library(legislatoR)
+library(WikipediR)
+library(rvest)
+library(dplyr)
+library(stringr) #für word count
+library(ggplot2)
+library(tm)
+library(MatchIt)
+library(quanteda)
+library(purrr)
+library(dplyr)
+library(tidyverse)
+library(rstatix)
+library(ggplot2)
+library(ggpubr)
+library(dplyr)
+library(rstatix)
+library(effsize)
+library(kableExtra)
+library(magick)
+library(webshot2)
+
+
+
+
+
+```
+
+
+```{r}
+deu_political <- read.csv("data/raw/deu_political.csv")
+deu_traffic <- read.csv("data/raw/deu_traffic.csv")
+deu <- read.csv("data/clean/deu.csv")
+matched_data <- read.csv("data/clean/matched_data.csv")
+```
+
+
+```{r}
+
+# Log2 Transformation der Textlänge
+
+deu$text_length_log2 <- log2(deu$text_length)
+
+# Mittelwerte der log2-transformierten Textlängen berechnen
+mean_women_log2 <- mean(deu$text_length_log2[deu$sex == "female"], na.rm = TRUE)
+mean_men_log2 <- mean(deu$text_length_log2[deu$sex == "male"], na.rm = TRUE)
+
+# Erstellen eines Boxplots mit log2-transformierten Daten
+boxplot(text_length_log2 ~ sex, data = deu, names = c("Women", "Men"),
+        main = "Text length by gender",
+        xlab = "Gender", 
+        ylab = "Text lenght (scaled by log2)")
+
+# Mittelwerte als blaue Diamanten markieren
+points(x = c(1, 2), y = c(mean_women_log2, mean_men_log2), col = "blue", pch = 23, bg = "blue")
+
+# p-Wert Text hinzufügen
+t_test_result <- t.test(text_length ~ sex, data = deu)
+text(x = 1.5, y = max(deu$text_length_log2, na.rm = TRUE), labels = paste("T-test, p = :", format(t_test_result$p.value, digits = 4)))
+```
+```{r}
+
+
+mean_women_links <- mean(deu$number_of_links[deu$sex == "female"], na.rm = TRUE)
+mean_men_links <- mean(deu$number_of_links[deu$sex == "male"], na.rm = TRUE)
+
+boxplot(number_of_links ~ sex, data = deu, names = c("Women", "Men"),
+        main = "Number of links by gender",
+        xlab = "Gender", 
+        ylab = "Number of links")
+
+# Mittelwerte als blaue Diamanten markieren
+points(x = c(1, 2), y = c(mean_women_links, mean_men_links), col = "blue", pch = 23, bg = "blue")
+
+# p-Wert Text hinzufügen
+t_test_result <- t.test(number_of_links ~ sex, data = deu)
+text(x = 1.5, y = max(deu$number_of_links, na.rm = TRUE), labels = paste("T-test, p = :", format(t_test_result$p.value, digits = 4)))
+```
+```{r}
+
+# Log2 Transformation
+
+deu$total_edits_log2 <- log2(deu$total_edits)
+# Mittelwerte der log2-transformierten Textlängen berechnen
+mean_women_edits_log2 <- mean(deu$total_edits_log2[deu$sex == "female"], na.rm = TRUE)
+mean_men_edits_log2 <- mean(deu$total_edits_log2[deu$sex == "male"], na.rm = TRUE)
+
+boxplot(total_edits_log2 ~ sex, data = deu, names = c("Women", "Men"),
+        main = "Number of edits by gender",
+        xlab = "Gender", 
+        ylab = "Number of edits")
+
+# Mittelwerte als blaue Diamanten markieren
+points(x = c(1, 2), y = c(mean_women_edits_log2, mean_men_edits_log2), col = "blue", pch = 23, bg = "blue")
+
+# p-Wert Text hinzufügen
+t_test_result <- t.test(total_edits ~ sex, data = deu)
+text(x = 1.5, y = max(deu$total_edits_log2, na.rm = TRUE), labels = paste("T-test, p = ", format(t_test_result$p.value, digits = 4)))
+```
+
+
+Analysis for different cohorts - create dataframe per cohort
+```{r}
+
+#split in relatively equaly sized cohorts
+cohort_assignment <- function(year) {
+  if(year < 1939) {
+    return("first_cohort")
+  } else if(year >= 1939 & year <= 1949) {
+    return("second_cohort")
+  } else if(year >= 1949 & year <= 1959) {
+    return("third_cohort")
+  } else if(year >= 1959 & year <= 1969) {
+    return("fourth_cohort")
+  } else {
+    return("fifth_cohort")
+  }
+}
+
+
+# Anwenden der Funktion auf den birthyear, um die Kohortenzugehörigkeit als Vektor zu erhalten
+cohort_vector <- sapply(matched_data$birthyear, cohort_assignment)
+
+# Aufteilen des DataFrames in eine Liste von DataFrames basierend auf dem Kohortenvektor
+list_of_dfs <- split(matched_data, cohort_vector)
+
+# Zugriff auf die separaten DataFrames direkt aus der Liste
+first_cohort <- list_of_dfs$first_cohort
+second_cohort <- list_of_dfs$second_cohort
+third_cohort <- list_of_dfs$third_cohort
+fourth_cohort <- list_of_dfs$fourth_cohort
+fifth_cohort <- list_of_dfs$fifth_cohort
+
+```
+
+
+
+Analysis for different parties - create dataframe per party
+```{r}
+parties <- c("FDP", "AfD", "BÜNDNIS 90/DIE GRÜNEN", "CDU", "CSU", "SPD", "DIE LINKE")
+
+# Liste, um die separaten DataFrames zu speichern
+party_dfs <- list()
+
+# Schleife über die Namen der Parteien
+for(party in parties) {
+  if(party == "CDU" || party == "CSU") {
+    # Füge Daten für CDU und CSU zusammen, falls noch nicht geschehen
+    if(!"CDU_CSU" %in% names(party_dfs)) {
+      party_dfs[["CDU_CSU"]] <- matched_data[matched_data$party %in% c("CDU", "CSU"), ]
+    }
+  } else {
+    # Erstelle einen DataFrame für jede andere Partei
+    party_dfs[[party]] <- matched_data[matched_data$party == party, ]
+  }
+}
+
+# Zugriff auf den kombinierten DataFrame von CDU und CSU
+cdu_csu_df <- party_dfs[["CDU_CSU"]]
+greens_df <- party_dfs[["BÜNDNIS 90/DIE GRÜNEN"]]
+left_df <- party_dfs[["DIE LINKE"]]
+fdp_df <- party_dfs[["FDP"]]
+spd_df <- party_dfs[["SPD"]]
+afd_df <- party_dfs[["AfD"]]
+
+```
+
+table
+```{r}
+calculate_statistics <- function(df) {
+  # Initialisiere einen leeren DataFrame für die Ergebnisse
+  ergebnisse <- tibble()
+  
+  for (variable in c("text_length", "number_of_links", "total_edits")) {
+    # Extrahiere die Daten für jede Gruppe
+    data_male <- df %>% filter(sex == "male") %>% pull(variable)
+    data_female <- df %>% filter(sex == "female") %>% pull(variable)
+    
+    # Führe Welch-Test durch
+    test <- t.test(data_male, data_female)
+    
+    # Berechne Cohen's d
+    d <- cohen.d(data_male, data_female)
+    
+    # Füge Ergebnisse hinzu
+    ergebnisse <- rbind(ergebnisse, tibble(
+      Variable = variable,
+      Mean_Female = mean(data_female, na.rm = TRUE),
+      Mean_Male = mean(data_male, na.rm = TRUE),
+      P_Value = test$p.value,
+      Effect_Size = d$estimate
+    ))
+  }
+  
+  return(ergebnisse)
+}
+
+
+descriptives_deu <- calculate_statistics(deu)
+descriptives_matched <- calculate_statistics(matched_data)
+descriptives_cohort1 <- calculate_statistics(first_cohort)
+descriptives_cohort2 <- calculate_statistics(second_cohort)
+descriptives_cohort3 <- calculate_statistics(third_cohort)
+descriptives_cohort4 <- calculate_statistics(fourth_cohort)
+descriptives_cohort5 <- calculate_statistics(fifth_cohort)
+descriptives_cdu <- calculate_statistics(cdu_csu_df)
+descriptives_afd <- calculate_statistics(afd_df)
+descriptives_fdp <- calculate_statistics(fdp_df)
+descriptives_spd <- calculate_statistics(spd_df)
+descriptives_greens <- calculate_statistics(greens_df)
+descriptives_left <- calculate_statistics(left_df)
+
+descriptives_deu$subgroup <- "whole sample"
+descriptives_matched$subgroup <- "Matched"
+descriptives_cohort1$subgroup <- "Age Cohort 1"
+descriptives_cohort2$subgroup <- "Age Cohort 2"
+descriptives_cohort3$subgroup <- "Age Cohort 3"
+descriptives_cohort4$subgroup <- "Age Cohort 4"
+descriptives_cohort5$subgroup <- "Age Cohort 5"
+descriptives_cdu$subgroup <- "CDU/CSU"
+descriptives_afd$subgroup <- "AfD"
+descriptives_fdp$subgroup <- "FDP"
+descriptives_spd$subgroup <- "SPD"
+descriptives_greens$subgroup <- "Greens"
+descriptives_left$subgroup <- "Left"
+
+
+
+all_descriptives <- bind_rows(
+  descriptives_deu,
+  descriptives_matched,
+  descriptives_cohort1,
+  descriptives_cohort2,
+  descriptives_cohort3,
+  descriptives_cohort4,
+  descriptives_cohort5,
+  descriptives_cdu,
+  descriptives_afd,
+  descriptives_fdp,
+  descriptives_spd,
+  descriptives_greens,
+  descriptives_left
+)
+
+
+parties_descriptives <- bind_rows(
+    descriptives_cdu,
+  descriptives_afd,
+  descriptives_fdp,
+  descriptives_spd,
+  descriptives_greens,
+  descriptives_left
+)
+
+
+combine_p_value_and_stars <- function(p_value) {
+  stars <- ifelse(p_value < .001, "***",
+                  ifelse(p_value < .01, "**",
+                         ifelse(p_value < .05, "*", 
+                                ifelse(p_value < .1, ".", "ns"))))
+  
+  formatted_p_value <- format(p_value, digits = 3)
+  
+  if(grepl("\\*", stars)) {
+    # Verwenden von HTML-Tags für Fettdruck im R-Output (für HTML-Dokumente)
+    return(sprintf("<b>%s%s</b>", formatted_p_value, stars))
+  } else {
+    return(formatted_p_value)
+  }
+}
+
+# Anwenden der Funktion auf Ihre P_Value-Spalte
+all_descriptives$P_Value <- sapply(all_descriptives$P_Value, combine_p_value_and_stars)
+
+all_descriptives <- all_descriptives %>% select(subgroup, everything())%>%
+  mutate(across(where(is.numeric), round, digits = 3))
+
+
+# Erstellen Sie die kable-Tabelle
+descriptive_table <- kable(all_descriptives, "html", escape = FALSE, caption = "Descriptive Statistics") %>%
+  kable_styling("striped", full_width = F) %>%
+  collapse_rows(columns = 1, valign = "top")%>%
+  save_kable("visualisations/test.png")
+
+
+
+
+```
+function
+
+```{r}
+generate_and_save_table <- function(data) {
+  # Funktion zur Formatierung der P-Werte innerhalb der übergeordneten Funktion, um den Scope zu begrenzen
+  combine_p_value_and_stars <- function(p_value) {
+    stars <- ifelse(p_value < 0.05, "*", "") 
+      
+      
+      # ifelse(p_value < .001, "***",
+      #               ifelse(p_value < .01, "**",
+      #                      ifelse(p_value < .05, "*", 
+      #                             ifelse(p_value < .1, ".", "ns"))))
+    
+    formatted_p_value <- format(p_value, digits = 3)
+    
+    if(grepl("\\*", stars)) {
+      return(sprintf("<b>%s%s</b>", formatted_p_value, stars))
+    } else {
+      return(formatted_p_value)
+    }
+  }
+  
+  # P-Werte formatieren
+  data$P_Value <- sapply(data$P_Value, combine_p_value_and_stars)
+  
+  # Datensatz vorbereiten
+  data <- data %>%
+    select(subgroup, everything()) %>%
+    mutate(across(where(is.numeric), round, digits = 3))
+  
+  # Tabelle erstellen
+  descriptive_table <- kable(data, "html", escape = FALSE, caption = "Descriptive Statistics") %>%
+    kable_styling("striped", full_width = F) %>%
+    collapse_rows(columns = 1, valign = "top")%>%
+  save_kable("visualisations/parties.png")
+
+}
+
+# Anwendung der Funktion auf Ihren Datensatz
+generate_and_save_table(parties_descriptives)
+```
+
