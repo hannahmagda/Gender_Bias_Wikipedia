@@ -20,6 +20,8 @@ library(purrr)
 ```{r}
 #load data 
 
+#matched and unmatched whole sample
+
 deu_life_female_cat <- read.csv("data/annotated_data/deu_life_female_cat.csv", sep = ";")
 deu_life_male_cat <- read.csv("data/annotated_data/deu_life_male_cat.csv", sep = ";")
 
@@ -71,6 +73,15 @@ left_life_male_cat <- read.csv("data/annotated_data/left_life_male_cat.csv", sep
 
 left_career_female_cat <- read.csv("data/annotated_data/left_career_female_cat.csv", sep = ";")
 left_career_male_cat <- read.csv("data/annotated_data/left_career_male_cat.csv", sep = ";")
+
+
+#old vs. new
+matched_old_life_female_cat <- read.csv("data/annotated_data/matched_old_life_female_cat.csv", sep = ";")
+matched_old_life_male_cat <- read.csv("data/annotated_data/left_life_male_cat.csv", sep = ";")
+
+matched_new_life_female_cat <- read.csv("data/annotated_data/matched_new_life_female_cat.csv", sep = ";")
+matched_new_life_male_cat <- read.csv("data/annotated_data/matched_new_life_male_cat.csv", sep = ";")
+
 
 ```
 
@@ -347,6 +358,70 @@ combined_df_filled <- combined_df %>%
 
 
  p_values <- combined_df_filled %>%
+  group_by(subgroup) %>%
+  summarise(contingency = list(table(sex, category)),
+            p_value = map_dbl(contingency, ~fisher.test(.)$p.value),
+            .groups = 'drop')
+ 
+ df_grouped <- combined_df %>%
+  group_by(subgroup, sex, category) %>%
+  summarise(count = n(), .groups = 'drop')
+
+df_grouped <- df_grouped %>%
+  left_join(p_values %>% select(subgroup, p_value), by = "subgroup")
+
+# Bereite Daten für die Tabelle vor
+df_wide <- df_grouped %>%
+  pivot_wider(names_from = category, values_from = count, values_fill = list(count = 0)) %>%
+  # Gruppiere nach subgroup und sex, um Duplikate von p_value zu entfernen
+  group_by(subgroup, sex) %>%
+  summarise(across(everything(), first), .groups = 'drop')
+
+df_final <- df_wide %>%
+  mutate(
+    `p-wert` = cell_spec(
+      ifelse(row_number() %% 2 == 1, ifelse(p_value < 0.05, paste0("<b>", round(p_value, 3), "*</b>"), round(p_value, 3)), " "),
+      "html", escape = FALSE
+    )
+  )
+
+
+df_final %>%
+  select(subgroup, `p-wert`, sex, F, R, G, O) %>%
+  arrange(subgroup, sex) %>%
+  kable("html", escape = FALSE) %>%  # Wichtig: escape = FALSE, um HTML zu rendern
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed")) %>%
+  collapse_rows(columns = 1, valign = "middle")
+
+```
+
+old vs. new data matched life
+```{r}
+matched_new_life_female_cat$sex <- 'female'
+matched_new_life_male_cat$sex <- 'male'
+matched_old_life_female_cat$sex <- 'female'
+matched_old_life_male_cat$sex <- 'male'
+
+# Zuordnung der Untergruppen 
+matched_new_life_female_cat$subgroup <- 'new'
+matched_new_life_male_cat$subgroup <- 'new'
+matched_old_life_female_cat$subgroup <- 'old'
+matched_old_life_male_cat$subgroup <- 'old'
+
+combined_df <- rbind(matched_new_life_female_cat, matched_new_life_male_cat,
+  matched_old_life_female_cat, matched_old_life_male_cat)
+
+# expected_categories <- c("F", "G", "R", "O") 
+# 
+# # Sicherstellen, dass alle Kombinationen vorhanden sind und fehlende mit Nullen auffüllen
+# combined_df_filled <- combined_df %>%
+#   group_by(subgroup) %>%
+#   # Achten Sie darauf, dass alle Kategorien und Geschlechter repräsentiert sind
+#   complete(category = expected_categories, fill = list(Freq = 0)) %>%
+#   ungroup()
+
+
+ p_values <- combined_df %>%
   group_by(subgroup) %>%
   summarise(contingency = list(table(sex, category)),
             p_value = map_dbl(contingency, ~fisher.test(.)$p.value),
