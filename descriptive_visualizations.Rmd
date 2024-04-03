@@ -49,25 +49,51 @@ matched_data <- read.csv("data/clean/matched_data.csv")
 ```{r}
 
 # Log2 Transformation der Textlänge
-
+# 
 deu$text_length_log2 <- log2(deu$text_length)
 
 # Mittelwerte der log2-transformierten Textlängen berechnen
-mean_women_log2 <- mean(deu$text_length_log2[deu$sex == "female"], na.rm = TRUE)
-mean_men_log2 <- mean(deu$text_length_log2[deu$sex == "male"], na.rm = TRUE)
+# mean_women_log2 <- mean(deu$text_length_log2[deu$sex == "female"], na.rm = TRUE)
+# mean_men_log2 <- mean(deu$text_length_log2[deu$sex == "male"], na.rm = TRUE)
 
-# Erstellen eines Boxplots mit log2-transformierten Daten
-boxplot(text_length_log2 ~ sex, data = deu, names = c("Women", "Men"),
-        main = "Text length by gender",
-        xlab = "Gender", 
-        ylab = "Text lenght (scaled by log2)")
+# # Erstellen eines Boxplots mit log2-transformierten Daten
+# boxplot(text_length_log2 ~ sex, data = deu, names = c("Women", "Men"),
+#         main = "Text length by gender",
+#         xlab = "Gender", 
+#         ylab = "Text lenght (scaled by log2)")
+# 
+# # Mittelwerte als blaue Diamanten markieren
+# points(x = c(1, 2), y = c(mean_women_log2, mean_men_log2), col = "blue", pch = 23, bg = "blue")
+# 
+# # p-Wert Text hinzufügen
 
-# Mittelwerte als blaue Diamanten markieren
-points(x = c(1, 2), y = c(mean_women_log2, mean_men_log2), col = "blue", pch = 23, bg = "blue")
 
-# p-Wert Text hinzufügen
-t_test_result <- t.test(text_length ~ sex, data = deu)
-text(x = 1.5, y = max(deu$text_length_log2, na.rm = TRUE), labels = paste("T-test, p = :", format(t_test_result$p.value, digits = 4)))
+deu_summary <- deu %>%
+  group_by(sex) %>%
+  summarize(mean_log2_length = mean(text_length_log2, na.rm = TRUE)) %>%
+  mutate(sex = factor(sex, levels = c("female", "male"), labels = c("Women", "Men")))
+
+# p-Wert aus einem T-Test berechnen
+t_test_result <- t.test(text_length_log2 ~ sex, data = deu)
+
+# Boxplot erstellen
+p <- ggplot(deu, aes(x = factor(sex, levels = c("female", "male"), labels = c("Women", "Men")), y = text_length_log2)) +
+  geom_boxplot(aes(fill = sex)) +
+  scale_fill_manual(values = c("Women" = "pink", "Men" = "lightblue")) +
+  labs(
+       x = "Gender", 
+       y = "Text length (scaled by log2)") +
+  stat_summary(fun = mean, geom = "crossbar", aes(ymin = after_stat(y), ymax = after_stat(y)), 
+               width = 0.75, color = "blue", fatten = 0) + # Breite anpassen
+  geom_text(x = 1.5, y = max(deu$text_length_log2, na.rm = TRUE) + 0.2, 
+            label = paste("T-test p-value:", format(t_test_result$p.value, scientific = FALSE)), 
+            hjust = 0.5, vjust = 1, size = 5) +
+  theme_minimal()
+
+
+# Plot anzeigen
+print(p)
+
 ```
 ```{r}
 
