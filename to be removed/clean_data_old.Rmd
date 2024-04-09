@@ -4,9 +4,7 @@ author: "Hannah Schweren"
 date: "2024-03-15"
 output: html_document
 ---
-```{r setup}
-knitr::opts_knit$set(root.dir = '/Users/hannahschweren/Documents/Zukunft/Master/drittes semester/thesis/Code/thesis')
-```
+
 Skript to clean the data and prepare it for the further analysis
 
 
@@ -16,10 +14,6 @@ library(legislatoR)
 library(WikipediR)
 library(rvest)
 library(dplyr)
-library(purrr)
-library(tm)
-library(MatchIt)
-library(pbapply)
 ```
 
 
@@ -29,14 +23,14 @@ deu_political <- read.csv("data/raw/deu_political.csv")
 deu_traffic <- read.csv("data/raw/deu_traffic.csv")
 deu_text <- read.csv("data/raw/deu_text.csv")
 deu_office <- read.csv("data/raw/deu_offices.csv")
-deu_history <- read.csv("data/raw/deu_history.csv")
+
 
 ```
 
 Necessary functions
 ```{r}
 
-# function to extract "life" or "party/career" section
+# function to extract "live" or "party/career" section
 extract_content <- function(text, section = 1) {
   tryCatch({
     parts <- str_split(text, "\\[Bearbeiten \\| Quelltext bearbeiten\\]")[[1]]
@@ -125,33 +119,6 @@ check_office <- function(wikidataid, offices_dataset) {
   return(ifelse(length(any_true) == 0, FALSE, any_true))
 }
 
-##################################################################################################
-#function to get the number of links per page
-
-
-get_links <- function(wiki_name) {
-  # Initialize num_links as NA
-  num_links <- NA
-  
-  tryCatch({
-    # Introduce a delay of 1 or 2 seconds before the attempt
-    Sys.sleep(sample(1:2, 1))
-    
-    # Call the page_links function to get the data for the specified wiki_name
-    links_data <- page_links("de", "wikipedia", limit = 300, page = wiki_name)
-    
-    # Check if the 'links' list exists and is not empty
-    if (!is.null(links_data[["query"]][["pages"]][[1]][["links"]]) && 
-        length(links_data[["query"]][["pages"]][[1]][["links"]]) > 0) {
-      # Extract the number of links
-      num_links <- length(links_data[["query"]][["pages"]][[1]][["links"]])
-    }
-  }, error = function(e) {
-    # If an error occurs, num_links will remain NA
-  })
-  
-  return(num_links)
-}
 ```
 
 
@@ -188,23 +155,6 @@ deu <- deu %>%
 deu <- deu %>%
   mutate(career_text_old = map_chr(old_text, ~possibly(extract_content, otherwise = NA_character_)(.x, section = 3)))
 
-
-deu$extracted_text_new <- ifelse(is.na(deu$extracted_text_old), NA, deu$extracted_text)
-
-deu$career_text_new <- ifelse(is.na(deu$career_text_old), NA, deu$career_text)
-
-
-deu <- deu %>%
-  mutate(text_length_life = nchar(extracted_text))
-
-deu <- deu %>%
-  mutate(text_length_career = nchar(career_text))
-
-deu <- deu %>%
-  mutate(text_length = nchar(plain_text))
-
-
-
 ```
 
 
@@ -224,28 +174,6 @@ deu_political <- deu_political %>%
 total_traffic_per_politician <- deu_traffic %>%
   group_by(pageid) %>%
   summarise(total_traffic = sum(traffic))
-
-
-#######################################################################################################
-#add number of links per politician
-
-#deu$number_of_links <- pbsapply(deu$wikititle, get_links)
-
-
-###########################################################################################################
-
-#add number of edits per politician
-
-
-total_edits_per_politician <- deu_history %>%
-  group_by(pageid) %>%
-  summarise(total_edits = n()) 
-
-total_edits_per_politician$pageid <- as.integer(total_edits_per_politician$pageid)
-deu <- left_join(deu, total_edits_per_politician, by = "pageid")
-
-
-
 
 ```
 
@@ -269,7 +197,7 @@ deu$birthyear <- as.numeric(as.character(deu$birthyear))
 
 
 #new variable to indicate if politician had an important office
-deu$important_office <- sapply(deu$wikidataid, check_office, offices_dataset = deu_office)
+deu$important_office <- sapply(deu$wikidataid, check_office, offices_dataset = deu_offices)
 
 
 deu <- deu[complete.cases(deu$sex), ]

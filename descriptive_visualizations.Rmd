@@ -52,9 +52,6 @@ matched_data <- read.csv("data/clean/matched_data.csv")
 # 
 deu$text_length_log2 <- log2(deu$text_length)
 
-# Mittelwerte der log2-transformierten Textlängen berechnen
-# mean_women_log2 <- mean(deu$text_length_log2[deu$sex == "female"], na.rm = TRUE)
-# mean_men_log2 <- mean(deu$text_length_log2[deu$sex == "male"], na.rm = TRUE)
 
 # # Erstellen eines Boxplots mit log2-transformierten Daten
 # boxplot(text_length_log2 ~ sex, data = deu, names = c("Women", "Men"),
@@ -68,89 +65,244 @@ deu$text_length_log2 <- log2(deu$text_length)
 # # p-Wert Text hinzufügen
 
 
-deu_summary <- deu %>%
-  group_by(sex) %>%
-  summarize(mean_log2_length = mean(text_length_log2, na.rm = TRUE)) %>%
-  mutate(sex = factor(sex, levels = c("female", "male"), labels = c("Women", "Men")))
-
 # p-Wert aus einem T-Test berechnen
-t_test_result <- t.test(text_length_log2 ~ sex, data = deu)
+t_test_result <- t.test(text_length ~ sex, data = deu)
 
 # Boxplot erstellen
-p <- ggplot(deu, aes(x = factor(sex, levels = c("female", "male"), labels = c("Women", "Men")), y = text_length_log2)) +
-  geom_boxplot(aes(fill = sex)) +
-  scale_fill_manual(values = c("Women" = "pink", "Men" = "lightblue")) +
+deu_text_length <- ggplot(deu, aes(x = factor(sex, levels = c("female", "male"), labels = c("Women", "Men")), y = text_length_log2)) +
+  geom_boxplot(fill = "grey") +  # Alle Boxplots in Grau füllen
   labs(
        x = "Gender", 
-       y = "Text length (scaled by log2)") +
-  stat_summary(fun = mean, geom = "crossbar", aes(ymin = after_stat(y), ymax = after_stat(y)), 
-               width = 0.75, color = "blue", fatten = 0) + # Breite anpassen
+       y = "Text length (scaled by log2)", caption = "(a) text length") +
+  stat_summary(fun = mean, geom = "point", aes(group = sex),
+               shape = 4, size = 3, color = "blue") + # Kreuz für den Mittelwert
   geom_text(x = 1.5, y = max(deu$text_length_log2, na.rm = TRUE) + 0.2, 
-            label = paste("T-test p-value:", format(t_test_result$p.value, scientific = FALSE)), 
+            label = paste("p-value:", format(t_test_result$p.value, scientific = FALSE)), 
             hjust = 0.5, vjust = 1, size = 5) +
-  theme_minimal()
+  theme_minimal()+
+  theme(
+    panel.background = element_rect(fill = "white", colour = "white"), # Setzt den Hintergrund auf Weiß
+    plot.background = element_rect(fill = "white", colour = NA))+
+      theme(plot.caption = element_text(hjust = 0.5, size = 14))
 
-
-# Plot anzeigen
-print(p)
+deu_text_length
+#ggsave("visualisations/deu_text_length.png", plot = p, width = 8, height = 6, units = "in")
 
 ```
+
+
+
 ```{r}
 
 
-mean_women_links <- mean(deu$number_of_links[deu$sex == "female"], na.rm = TRUE)
-mean_men_links <- mean(deu$number_of_links[deu$sex == "male"], na.rm = TRUE)
+# mean_women_links <- mean(deu$number_of_links[deu$sex == "female"], na.rm = TRUE)
+# mean_men_links <- mean(deu$number_of_links[deu$sex == "male"], na.rm = TRUE)
+# 
+# boxplot(number_of_links ~ sex, data = deu, names = c("Women", "Men"),
+#         main = "Number of links by gender",
+#         xlab = "Gender",
+#         ylab = "Number of links")
+# 
+# # Mittelwerte als blaue Diamanten markieren
+# points(x = c(1, 2), y = c(mean_women_links, mean_men_links), col = "blue", pch = 23, bg = "blue")
+# 
+# # p-Wert Text hinzufügen
+# t_test_result <- t.test(number_of_links ~ sex, data = deu)
+# text(x = 1.5, y = max(deu$number_of_links, na.rm = TRUE), labels = paste("T-test, p = :", format(t_test_result$p.value, digits = 4)))
 
-boxplot(number_of_links ~ sex, data = deu, names = c("Women", "Men"),
-        main = "Number of links by gender",
-        xlab = "Gender", 
-        ylab = "Number of links")
 
-# Mittelwerte als blaue Diamanten markieren
-points(x = c(1, 2), y = c(mean_women_links, mean_men_links), col = "blue", pch = 23, bg = "blue")
 
-# p-Wert Text hinzufügen
-t_test_result <- t.test(number_of_links ~ sex, data = deu)
-text(x = 1.5, y = max(deu$number_of_links, na.rm = TRUE), labels = paste("T-test, p = :", format(t_test_result$p.value, digits = 4)))
+# p-Wert aus einem T-Test für die Anzahl der Links berechnen
+t_test_result_links <- t.test(number_of_links ~ sex, data = deu)
+
+# Boxplot für die Anzahl der Links erstellen
+deu_links <- ggplot(deu, aes(x = factor(sex, levels = c("female", "male"), labels = c("Women", "Men")), y = number_of_links)) +
+  geom_boxplot(fill = "grey") +  # Alle Boxplots in Grau füllen
+  labs(
+       x = "Gender", 
+       y = "Number of links", caption = "(b) Number of links") +
+  stat_summary(fun = mean, geom = "point", aes(group = sex),
+               shape = 4, size = 3, color = "blue") + # Kreuz für den Mittelwert
+  geom_text(x = 1.5, y = max(deu$number_of_links, na.rm = TRUE) + 0.2, 
+            label = paste("p-value:", format(t_test_result_links$p.value, scientific = FALSE)), 
+            hjust = 0.5, vjust = 1, size = 5) +
+  theme_minimal()+
+  theme(
+    panel.background = element_rect(fill = "white", colour = "white"), # Setzt den Hintergrund auf Weiß
+    plot.background = element_rect(fill = "white", colour = NA))+
+      theme(plot.caption = element_text(hjust = 0.5, size = 14))
+
+# Plot anzeigen
+deu_links
+
+# Plot speichern
+#ggsave("visualisations/deu_number_of_links.png", plot = p_links, width = 8, height = 6, units = "in")
 ```
+
+
 ```{r}
 
 # Log2 Transformation
+# 
+ deu$total_edits_log2 <- log2(deu$total_edits)
+# # Mittelwerte der log2-transformierten Textlängen berechnen
+# mean_women_edits_log2 <- mean(deu$total_edits_log2[deu$sex == "female"], na.rm = TRUE)
+# mean_men_edits_log2 <- mean(deu$total_edits_log2[deu$sex == "male"], na.rm = TRUE)
+# 
+# boxplot(total_edits_log2 ~ sex, data = deu, names = c("Women", "Men"),
+#         main = "Number of edits by gender",
+#         xlab = "Gender", 
+#         ylab = "Number of edits")
+# 
+# # Mittelwerte als blaue Diamanten markieren
+# points(x = c(1, 2), y = c(mean_women_edits_log2, mean_men_edits_log2), col = "blue", pch = 23, bg = "blue")
+# 
+# # p-Wert Text hinzufügen
+# t_test_result <- t.test(total_edits ~ sex, data = deu)
+# text(x = 1.5, y = max(deu$total_edits_log2, na.rm = TRUE), labels = paste("T-test, p = ", format(t_test_result$p.value, digits = 4)))
 
-deu$total_edits_log2 <- log2(deu$total_edits)
-# Mittelwerte der log2-transformierten Textlängen berechnen
-mean_women_edits_log2 <- mean(deu$total_edits_log2[deu$sex == "female"], na.rm = TRUE)
-mean_men_edits_log2 <- mean(deu$total_edits_log2[deu$sex == "male"], na.rm = TRUE)
+t_test_result_edits <- t.test(total_edits ~ sex, data = deu)
 
-boxplot(total_edits_log2 ~ sex, data = deu, names = c("Women", "Men"),
-        main = "Number of edits by gender",
-        xlab = "Gender", 
-        ylab = "Number of edits")
+# Boxplot für die log2-transformierten Gesamtbearbeitungen erstellen
+deu_edits <- ggplot(deu, aes(x = factor(sex, levels = c("female", "male"), labels = c("Women", "Men")), y = total_edits_log2)) +
+  geom_boxplot(fill = "grey") +  # Alle Boxplots in Grau füllen
+  labs(
+       x = "Gender", 
+       y = "Number of edits (log2 scaled)", caption = "(c) Number of edits") +
+  stat_summary(fun = mean, geom = "point", aes(group = sex),
+               shape = 4, size = 3, color = "blue") + # Kreuz für den Mittelwert
+  geom_text(x = 1.5, y = max(deu$total_edits_log2, na.rm = TRUE) + 0.2, 
+            label = paste("p-value:", format(t_test_result_edits$p.value, scientific = FALSE)), 
+            hjust = 0.5, vjust = 1, size = 5) +
+  theme_minimal()+
+  theme(
+    panel.background = element_rect(fill = "white", colour = "white"), # Setzt den Hintergrund auf Weiß
+    plot.background = element_rect(fill = "white", colour = NA))+
+      theme(plot.caption = element_text(hjust = 0.5, size = 14))
 
-# Mittelwerte als blaue Diamanten markieren
-points(x = c(1, 2), y = c(mean_women_edits_log2, mean_men_edits_log2), col = "blue", pch = 23, bg = "blue")
-
-# p-Wert Text hinzufügen
-t_test_result <- t.test(total_edits ~ sex, data = deu)
-text(x = 1.5, y = max(deu$total_edits_log2, na.rm = TRUE), labels = paste("T-test, p = ", format(t_test_result$p.value, digits = 4)))
+deu_edits
 ```
 
+```{r}
+combined_plot <- deu_text_length + deu_edits + deu_links + 
+  plot_layout(ncol = 3)
+
+# Den kombinierten Plot anzeigen
+print(combined_plot)
+
+ggsave("visualisations/deu_descriptives.png", plot = combined_plot, width = 15, height = 6, units = "in")
+
+
+```
+
+```{r}
+
+matched_data$text_length_log2 <- log2(matched_data$text_length)
+
+# p-Wert aus einem T-Test berechnen
+t_test_result <- t.test(text_length ~ sex, data = matched_data)
+
+# Boxplot erstellen
+matched_text_length <- ggplot(matched_data, aes(x = factor(sex, levels = c("female", "male"), labels = c("Women", "Men")), y = text_length_log2)) +
+  geom_boxplot(fill = "grey") +  # Alle Boxplots in Grau füllen
+  labs(
+       x = "Gender", 
+       y = "Text length (scaled by log2)", caption = "(a) text length") +
+  stat_summary(fun = mean, geom = "point", aes(group = sex),
+               shape = 4, size = 3, color = "blue") + # Kreuz für den Mittelwert
+  geom_text(x = 1.5, y = max(matched_data$text_length_log2, na.rm = TRUE) + 0.2, 
+            label = paste("p-value:", format(t_test_result$p.value, scientific = FALSE)), 
+            hjust = 0.5, vjust = 1, size = 5) +
+  theme_minimal()+
+  theme(
+    panel.background = element_rect(fill = "white", colour = "white"), # Setzt den Hintergrund auf Weiß
+    plot.background = element_rect(fill = "white", colour = NA))+
+      theme(plot.caption = element_text(hjust = 0.5, size = 14))
+
+matched_text_length
+
+#ggsave("visualisations/matched_text_length.png", plot = p, width = 8, height = 6, units = "in")
+
+```
+
+```{r}
+
+# p-Wert aus einem T-Test für die Anzahl der Links berechnen
+t_test_result_links <- t.test(number_of_links ~ sex, data = matched_data)
+
+# Boxplot für die Anzahl der Links erstellen
+matched_links <- ggplot(matched_data, aes(x = factor(sex, levels = c("female", "male"), labels = c("Women", "Men")), y = number_of_links)) +
+  geom_boxplot(fill = "grey") +  # Alle Boxplots in Grau füllen
+  labs(
+       x = "Gender", 
+       y = "Number of links", caption = "(b) Number of links") +
+  stat_summary(fun = mean, geom = "point", aes(group = sex),
+               shape = 4, size = 3, color = "blue") + # Kreuz für den Mittelwert
+  geom_text(x = 1.5, y = max(matched_data$number_of_links, na.rm = TRUE) + 0.2, 
+            label = paste("p-value:", format(t_test_result_links$p.value, scientific = FALSE)), 
+            hjust = 0.5, vjust = 1, size = 5) +
+  theme_minimal()+
+  theme(
+    panel.background = element_rect(fill = "white", colour = "white"), # Setzt den Hintergrund auf Weiß
+    plot.background = element_rect(fill = "white", colour = NA))+
+      theme(plot.caption = element_text(hjust = 0.5, size = 14))
+
+# Plot anzeigen
+matched_links
+
+# Plot speichern
+#ggsave("visualisations/matched_data_number_of_links.png", plot = p_links, width = 8, height = 6, units = "in")
+```
+
+```{r}
+# Log2 Transformation
+# 
+ matched_data$total_edits_log2 <- log2(matched_data$total_edits)
+
+t_test_result_edits <- t.test(total_edits ~ sex, data = matched_data)
+
+# Boxplot für die log2-transformierten Gesamtbearbeitungen erstellen
+matched_edits <- ggplot(matched_data, aes(x = factor(sex, levels = c("female", "male"), labels = c("Women", "Men")), y = total_edits_log2)) +
+  geom_boxplot(fill = "grey") +  # Alle Boxplots in Grau füllen
+  labs(
+       x = "Gender", 
+       y = "Number of edits (log2 scaled)", caption = "(c) Number of edits") +
+  stat_summary(fun = mean, geom = "point", aes(group = sex),
+               shape = 4, size = 3, color = "blue") + # Kreuz für den Mittelwert
+  geom_text(x = 1.5, y = max(matched_data$total_edits_log2, na.rm = TRUE) + 0.2, 
+            label = paste("p-value:", format(t_test_result_edits$p.value, scientific = FALSE)), 
+            hjust = 0.5, vjust = 1, size = 5) +
+  theme_minimal()+
+  theme(
+    panel.background = element_rect(fill = "white", colour = "white"), # Setzt den Hintergrund auf Weiß
+    plot.background = element_rect(fill = "white", colour = NA))+
+      theme(plot.caption = element_text(hjust = 0.5, size = 14))
+
+matched_edits
+```
+```{r}
+descriptives_mathced <- matched_text_length + matched_edits + matched_links + 
+  plot_layout(ncol = 3)
+
+# Den kombinierten Plot anzeigen
+print(descriptives_mathced)
+
+ggsave("visualisations/matched_descriptives.png", plot = descriptives_mathced, width = 15, height = 6, units = "in")
+
+
+```
 
 Analysis for different cohorts - create dataframe per cohort
 ```{r}
 
-#split in relatively equaly sized cohorts
+
 cohort_assignment <- function(year) {
-  if(year < 1939) {
-    return("first_cohort")
-  } else if(year >= 1939 & year <= 1949) {
-    return("second_cohort")
-  } else if(year >= 1949 & year <= 1959) {
-    return("third_cohort")
-  } else if(year >= 1959 & year <= 1969) {
-    return("fourth_cohort")
+  if(year < 1949) {
+    return("cohort1")
+  } else if(year >= 1949 & year <= 1969) {
+    return("cohort2")
   } else {
-    return("fifth_cohort")
+    return("cohort3")
   }
 }
 
@@ -161,12 +313,10 @@ cohort_vector <- sapply(matched_data$birthyear, cohort_assignment)
 # Aufteilen des DataFrames in eine Liste von DataFrames basierend auf dem Kohortenvektor
 list_of_dfs <- split(matched_data, cohort_vector)
 
-# Zugriff auf die separaten DataFrames direkt aus der Liste
-first_cohort <- list_of_dfs$first_cohort
-second_cohort <- list_of_dfs$second_cohort
-third_cohort <- list_of_dfs$third_cohort
-fourth_cohort <- list_of_dfs$fourth_cohort
-fifth_cohort <- list_of_dfs$fifth_cohort
+
+cohort1 <- list_of_dfs$cohort1
+cohort2 <- list_of_dfs$cohort2
+cohort3 <- list_of_dfs$cohort3
 
 ```
 
@@ -204,20 +354,29 @@ afd_df <- party_dfs[["AfD"]]
 
 table
 ```{r}
+
+library(effsize)
+
+
 calculate_statistics <- function(df) {
   # Initialisiere einen leeren DataFrame für die Ergebnisse
   ergebnisse <- tibble()
   
-  for (variable in c("text_length", "number_of_links", "total_edits")) {
+  for (variable in c("text_length", "text_length_career", "text_length_life", "number_of_links", "total_edits")) {
     # Extrahiere die Daten für jede Gruppe
     data_male <- df %>% filter(sex == "male") %>% pull(variable)
     data_female <- df %>% filter(sex == "female") %>% pull(variable)
     
+    # Überprüfe, ob die Variable im DataFrame existiert
+    if (length(data_male) == 0 | length(data_female) == 0) {
+      next
+    }
+    
     # Führe Welch-Test durch
-    test <- t.test(data_male, data_female)
+    test <- t.test(data_male, data_female, na.action = na.exclude)
     
     # Berechne Cohen's d
-    d <- cohen.d(data_male, data_female)
+    d <- cohen.d(data_male, data_female, na.rm = TRUE)$estimate
     
     # Füge Ergebnisse hinzu
     ergebnisse <- rbind(ergebnisse, tibble(
@@ -225,7 +384,7 @@ calculate_statistics <- function(df) {
       Mean_Female = mean(data_female, na.rm = TRUE),
       Mean_Male = mean(data_male, na.rm = TRUE),
       P_Value = test$p.value,
-      Effect_Size = d$estimate
+      Effect_Size = d
     ))
   }
   
@@ -233,8 +392,8 @@ calculate_statistics <- function(df) {
 }
 
 
-descriptives_deu <- calculate_statistics(deu)
 descriptives_matched <- calculate_statistics(matched_data)
+
 descriptives_cohort1 <- calculate_statistics(first_cohort)
 descriptives_cohort2 <- calculate_statistics(second_cohort)
 descriptives_cohort3 <- calculate_statistics(third_cohort)
@@ -247,7 +406,6 @@ descriptives_spd <- calculate_statistics(spd_df)
 descriptives_greens <- calculate_statistics(greens_df)
 descriptives_left <- calculate_statistics(left_df)
 
-descriptives_deu$subgroup <- "whole sample"
 descriptives_matched$subgroup <- "Matched"
 descriptives_cohort1$subgroup <- "Age Cohort 1"
 descriptives_cohort2$subgroup <- "Age Cohort 2"
@@ -323,20 +481,23 @@ descriptive_table <- kable(all_descriptives, "html", escape = FALSE, caption = "
 
 
 ```
+
+
+
 function
 
 ```{r}
-generate_and_save_table <- function(data) {
+generate_and_save_table <- function(data, file_name) {
   # Funktion zur Formatierung der P-Werte innerhalb der übergeordneten Funktion, um den Scope zu begrenzen
   combine_p_value_and_stars <- function(p_value) {
-    stars <- ifelse(p_value < 0.05, "*", "") 
-      
-      
-      # ifelse(p_value < .001, "***",
-      #               ifelse(p_value < .01, "**",
-      #                      ifelse(p_value < .05, "*", 
-      #                             ifelse(p_value < .1, ".", "ns"))))
+    stars <- ifelse(p_value < .001, "***",
+                    ifelse(p_value < .01, "**",
+                           ifelse(p_value < .05, "*",
+                                  ifelse(p_value < .1, ".", "ns"))))
     
+      
+      
+      
     formatted_p_value <- format(p_value, digits = 3)
     
     if(grepl("\\*", stars)) {
@@ -355,14 +516,102 @@ generate_and_save_table <- function(data) {
     mutate(across(where(is.numeric), round, digits = 3))
   
   # Tabelle erstellen
-  descriptive_table <- kable(data, "html", escape = FALSE, caption = "Descriptive Statistics") %>%
+  descriptive_table <- kable(data, "html", escape = FALSE) %>%
     kable_styling("striped", full_width = F) %>%
-    collapse_rows(columns = 1, valign = "top")%>%
-  save_kable("visualisations/parties.png")
+    collapse_rows(columns = 1, valign = "top")#%>%
+  save_kable(descriptive_table, file = paste0("visualisations/", file_name, ".png"))
+  
+  return(descriptive_table)
 
 }
 
-# Anwendung der Funktion auf Ihren Datensatz
-generate_and_save_table(parties_descriptives)
+
 ```
+
+
+```{r}
+
+#unmatched data
+descriptives_deu <- calculate_statistics(deu)
+descriptives_deu$subgroup <- "whole sample"
+generate_and_save_table(descriptives_deu)
+
+
+
+#matched data
+descriptives_matched <- calculate_statistics(matched_data)
+descriptives_matched$subgroup <- "matched sample"
+generate_and_save_table(descriptives_matched, "matched_descriptives")
+
+
+#age cohorts
+
+
+```
+
+mediaan instead of means:
+```{r}
+
+#unmatched data
+
+test_result <- wilcox.test(total_edits ~ sex, data = deu, exact = FALSE)
+
+# Ergebnis ausgeben
+test_result
+
+#matched data
+
+test_result <- wilcox.test(text_length_life ~ sex, data = matched_data, paired = TRUE)
+
+# Ergebnis ausgeben
+test_result
+
+
+```
+
+create a correlation matrix
+```{r}
+library(tidyverse)
+library(Hmisc)
+library(ggplot2)
+
+cors <- function(df) {
+  M <- Hmisc::rcorr(as.matrix(df)) 
+  return(list(cor = as.data.frame(M$r), p = as.data.frame(M$P))) 
+}
+
+formatted_cors <- function(df) {
+  Mdf <- cors(df)
+  cor_long <- Mdf$cor %>% 
+    rownames_to_column("Var1") %>% 
+    pivot_longer(cols = -Var1, names_to = "Var2", values_to = "cor") 
+  p_long <- Mdf$p %>% 
+    rownames_to_column("Var1") %>% 
+    pivot_longer(cols = -Var1, names_to = "Var2", values_to = "p") 
+
+  combined <- full_join(cor_long, p_long, by = c("Var1", "Var2")) %>% 
+    mutate(sig_p = p < .05,
+           r_if_sig = ifelse(sig_p, cor, NA),
+           p_if_sig = ifelse(sig_p, p, NA)) 
+
+  return(combined)
+}
+
+# Using your actual dataframe 'deu'
+formatted_cors(deu[, c("total_edits", "text_length", "number_of_links", 
+                       "total_service", "total_traffic")]) %>% 
+  filter(sig_p) %>%
+  ggplot(aes(x = Var1, y = Var2, fill = r_if_sig, label = round(r_if_sig, 2))) +
+  geom_tile() + 
+  geom_text() +
+  labs(fill = "Correlation (Pearson's)", 
+       subtitle = "Only significant Pearson's correlation coefficients shown") + 
+  scale_fill_gradient2(mid = "#9ecae1", low = "#deebf7", high = "#3182bd", limits = c(-1, 1)) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+
+
+############
+```
+
 
