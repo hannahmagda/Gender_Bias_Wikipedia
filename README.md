@@ -8,7 +8,7 @@ The raw and cleaned data is too big for github and can thus be found in this goo
 
 Before running the R Markdown documents, ensure you have installed R and RStudio. Also make sure to run the code in the setup.R file before working with the mardown files as this will assure that all necessary packages are installed.
 
-## Strucure
+## Structure
 
 The repository is structured as follows:
 **1. Aquire the wikipedia data** that I am working with
