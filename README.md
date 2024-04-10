@@ -10,7 +10,7 @@ Before running the R Markdown documents, ensure you have installed R and RStudio
 
 ## Structure
 
-The repository is structured as follows:
+The repository is structured as follows:  
 **1. Aquire the wikipedia data** that I am working with  
 **2. Clean the data** and apply a matching strategy  
 **3. Conduct a descriptive analysis** of the data and visualise the results  
