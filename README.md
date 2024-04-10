@@ -11,11 +11,11 @@ Before running the R Markdown documents, ensure you have installed R and RStudio
 ## Structure
 
 The repository is structured as follows:
-**1. Aquire the wikipedia data** that I am working with
-**2. Clean the data** and apply a matching strategy
-**3. Conduct a descriptive analysis** of the data and visualise the results
-**4. Conduct a PMI analysis** and save the resutls in the folder pmi_lists - these leists were then annotaded manually
-**5. visualisation of the results** of the pmi analysis
+**1. Aquire the wikipedia data** that I am working with  
+**2. Clean the data** and apply a matching strategy  
+**3. Conduct a descriptive analysis** of the data and visualise the results  
+**4. Conduct a PMI analysis** and save the resutls in the folder pmi_lists - these leists were then annotaded manually  
+**5. visualisation of the results** of the pmi analysis  
 
 
 ## Credits
