@@ -1,5 +1,4 @@
 # Gender bias in Wikipedia Biographies of German Politicians
-## Hannah Schweren, Master of Data Science for Public Policy, 2024
 
 This repository contains R Mardowns that use the Comparative legislator Database in order to analyse the Wikipedia biographoes of German Politicians to examine gender asymmetries. This code is part of my master thesis as a student of the Master of Data Science for Public Policy at Hertie School, 2024. 
 
