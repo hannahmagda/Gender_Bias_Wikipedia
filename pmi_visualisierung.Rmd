@@ -4,7 +4,7 @@ author: "Hannah Schweren"
 date: "2024-03-27"
 output: html_document
 ---
-Skript to create plots and tables to present the pmi results
+Skript to create plots and tables to present the results of the Pointwise Mutual Information. The results can be visualized as bar plots or as tables, which is more useful for the bigger subgroups of interest like party comparisons.
 
 Load required packages
 ```{r message=FALSE, warning=FALSE}
@@ -34,6 +34,33 @@ deu_career_male_cat <- read.csv(here("data", "annotated_data", "deu_career_male_
 
 matched_career_female_cat <- read.csv(here("data", "annotated_data", "matched_career_female_cat.csv"), sep = ";")
 matched_career_male_cat <- read.csv(here("data", "annotated_data", "matched_career_male_cat.csv"), sep = ";")
+
+
+#sensitivitiy analyis
+
+S_deu_life_female_cat <- read.csv(here("data", "annotated_data", "S_deu_life_female_cat.csv"), sep = ";")
+S_deu_life_male_cat <- read.csv(here("data", "annotated_data", "S_deu_life_male_cat.csv"), sep = ";")
+
+S_deu_career_female_cat <- read.csv(here("data", "annotated_data", "S_deu_career_female_cat.csv"), sep = ";")
+S_deu_career_male_cat <- read.csv(here("data", "annotated_data", "S_deu_career_male_cat.csv"), sep = ";")
+
+S2_deu_life_female_cat <- read.csv(here("data", "annotated_data", "S2_deu_life_female_cat.csv"), sep = ";")
+S2_deu_life_male_cat <- read.csv(here("data", "annotated_data", "S2_deu_life_male_cat.csv"), sep = ";")
+
+S2_deu_career_female_cat <- read.csv(here("data", "annotated_data", "S2_deu_career_female_cat.csv"), sep = ";")
+S2_deu_career_male_cat <- read.csv(here("data", "annotated_data", "S2_deu_career_male_cat.csv"), sep = ";")
+
+S3_deu_life_female_cat <- read.csv(here("data", "annotated_data", "S3_deu_life_female_cat.csv"), sep = ";")
+S3_deu_life_male_cat <- read.csv(here("data", "annotated_data", "S3_deu_life_male_cat.csv"), sep = ";")
+
+S3_deu_career_female_cat <- read.csv(here("data", "annotated_data", "S3_deu_career_female_cat.csv"), sep = ";")
+S3_deu_career_male_cat <- read.csv(here("data", "annotated_data", "S3_deu_career_male_cat.csv"), sep = ";")
+
+S4_deu_life_female_cat <- read.csv(here("data", "annotated_data", "S4_deu_life_female_cat.csv"), sep = ";")
+S4_deu_life_male_cat <- read.csv(here("data", "annotated_data", "S4_deu_life_male_cat.csv"), sep = ";")
+
+S4_deu_career_female_cat <- read.csv(here("data", "annotated_data", "S4_deu_career_female_cat.csv"), sep = ";")
+S4_deu_career_male_cat <- read.csv(here("data", "annotated_data", "S4_deu_career_male_cat.csv"), sep = ";")
 
 
 # parties
@@ -119,34 +146,51 @@ Create plots to visualise the pmi results
 ```{r}
 pmi_plot <- function(df_female, df_male) {
   # combine male and female annotated data and add column indicating the gender 
-  df_female$sex <- 'female'
-  df_male$sex <- 'male'
+  df_female$Gender <- 'female'
+  df_male$Gender <- 'male'
   combined_df <- rbind(df_female, df_male)
   
   # calculate share of each category
   category_proportions <- combined_df %>%
-    group_by(sex, category) %>%
+    group_by(Gender, category) %>%
     summarise(count = n(), .groups = 'drop') %>%
-    group_by(sex) %>%
+    group_by(Gender) %>%
     mutate(proportion = count / sum(count))
   
-  # conduct fishers's test in order to include the p-value to indicate (in-)significance of the results
-  contingency <- table(combined_df$sex, combined_df$category)
+  # conduct fishers's test in order to include the P-Value to indicate (in-)significance of the results
+  contingency <- table(combined_df$Gender, combined_df$category)
   fisher_test_result <- fisher.test(contingency)
   
+  # create a label for the P-Value
+  p_value_label <- ifelse(fisher_test_result$p.value < 0.001, "***",
+                        ifelse(fisher_test_result$p.value < 0.01, "**",
+                               ifelse(fisher_test_result$p.value < 0.05, "*",
+                                      ifelse(fisher_test_result$p.value < 0.1, "", ""))))
+  
   # create a plot showing the results
-p <- ggplot(category_proportions, aes(x = sex, y = proportion, fill = category)) +
+  p <- ggplot(category_proportions, aes(x = Gender, y = proportion, fill = category)) +
     geom_bar(stat = "identity", position = "stack") +
     scale_fill_manual(values = c("F" = "#a6611a", "R" = "#dfc27d", "O" = "#80cdc1", "G" = "#018571"),
-                    limits = c("F", "R", "O", "G")) +
+                      limits = c("F", "R", "O", "G"),
+                      labels = c("Family", "Relationship", "Other", "Gender"))+
     theme_minimal() +
-    labs(title = paste("Fisher's exact test, p-value = ", round(fisher_test_result$p.value, 4)),
-         x = "Gender", y = "Share") +
+    labs(title = paste("Fisher's exact test, P-Value = ", round(fisher_test_result$p.value, 4),p_value_label, sep = ""),
+         x = "Gender", y = "Share",
+         fill = "Category") +
     theme(plot.caption = element_text(hjust = 0.5, size = 14),
-          plot.title = element_text(hjust = 0.5))
-  
+          plot.title = element_text(hjust = 0.5),
+          axis.title.x = element_text(size = 16, face = "bold"), 
+          axis.title.y = element_text(size = 16, face = "bold"),
+          axis.text.x = element_text(size = 16),
+          axis.text.y = element_text(size = 13))
+
   return(p)
 }
+
+
+
+
+
 
 
 #apply the function to my unmatched and matched data
@@ -157,10 +201,10 @@ matched_life <- pmi_plot(matched_life_female_cat, matched_life_male_cat)
 matched_career <- pmi_plot(matched_career_female_cat, matched_career_male_cat)
 
 # adjust axis and legend appearance for the output plots
-deu_life <- deu_life + theme(legend.position = "none")
-deu_career <- deu_career + theme(axis.title.y = element_blank(), axis.text.y = element_blank(), axis.ticks.y = element_blank())
-matched_life <- matched_life + theme(legend.position = "none")
-matched_career <- matched_career + theme(axis.title.y = element_blank(), axis.text.y = element_blank(), axis.ticks.y = element_blank())
+deu_career <- deu_career + theme(legend.position = "none")
+deu_life <- deu_life + theme(axis.title.y = element_blank(), axis.text.y = element_blank(), axis.ticks.y = element_blank())
+matched_career <- matched_career + theme(legend.position = "none")
+matched_life <- matched_life + theme(axis.title.y = element_blank(), axis.text.y = element_blank(), axis.ticks.y = element_blank())
 
 #check plot output
 deu_life
@@ -169,10 +213,10 @@ matched_life
 matched_career
 
 #save the plots
-ggsave(here("visualisations", "deu_life_pmi.png"), plot = deu_life, width = 12, height = 6, units = "in")
-ggsave(here("visualisations", "deu_career_pmi.png"), plot = deu_career, width = 12, height = 6, units = "in")
-ggsave(here("visualisations", "matched_life_pmi.png"), plot = matched_life, width = 12, height = 6, units = "in")
-ggsave(here("visualisations", "matched_career_pmi.png"), plot = matched_career, width = 12, height = 6, units = "in")
+ggsave(here("visualisations", "deu_life_pmi.pdf"), plot = deu_life, width = 8, height = 6, units = "in", dpi = 600)
+ggsave(here("visualisations", "deu_career_pmi.pdf"), plot = deu_career, width = 8, height = 6, units = "in", dpi = 600)
+ggsave(here("visualisations", "matched_life_pmi.pdf"), plot = matched_life, width = 8, height = 6, units = "in", dpi = 600)
+ggsave(here("visualisations", "matched_career_pmi.pdf"), plot = matched_career, width = 8, height = 6, units = "in", dpi = 600)
 
 ```
 
@@ -180,10 +224,10 @@ create a table to present pmi results for the matched/unmatched data
 ```{r}
 
   # add gender coloumn and subgroup coloumn to identify the data in the table - for the life subsection data
-  deu_life_female_cat$sex <- 'female'
-  deu_life_male_cat$sex <- 'male'
-  matched_life_female_cat$sex <- 'female'
-  matched_life_male_cat$sex <- 'male'
+  deu_life_female_cat$Gender <- 'female'
+  deu_life_male_cat$Gender <- 'male'
+  matched_life_female_cat$Gender <- 'female'
+  matched_life_male_cat$Gender <- 'male'
   
   deu_life_female_cat$subgroup <- 'whole sample, life'
   deu_life_male_cat$subgroup <- 'whole sample, life'
@@ -191,10 +235,10 @@ create a table to present pmi results for the matched/unmatched data
   matched_life_male_cat$subgroup <- 'matched, life'
   
   # add gender coloumn and subgroup coloumn to identify the data in the table - for the career subsection data
-  deu_career_female_cat$sex <- 'female'
-  deu_career_male_cat$sex <- 'male'
-  matched_career_female_cat$sex <- 'female'
-  matched_career_male_cat$sex <- 'male'
+  deu_career_female_cat$Gender <- 'female'
+  deu_career_male_cat$Gender <- 'male'
+  matched_career_female_cat$Gender <- 'female'
+  matched_career_male_cat$Gender <- 'male'
   
   deu_career_female_cat$subgroup <- 'whole sample, career'
   deu_career_male_cat$subgroup <- 'whole sample, career'
@@ -204,39 +248,39 @@ create a table to present pmi results for the matched/unmatched data
   # combine the transformed dataframes
   combined_df <- rbind(deu_life_female_cat, deu_life_male_cat, matched_life_female_cat, matched_life_male_cat, deu_career_female_cat, deu_career_male_cat, matched_career_female_cat, matched_career_male_cat)
   
-  #calculate p-values
+  #calculate P-Values
  p_values <- combined_df %>%
   group_by(subgroup) %>%
-  summarise(contingency = list(table(sex, category)),
+  summarise(contingency = list(table(Gender, category)),
             p_value = map_dbl(contingency, ~fisher.test(.)$p.value),
             .groups = 'drop')
  
  #group and summarise data
  df_grouped <- combined_df %>%
-  group_by(subgroup, sex, category) %>%
+  group_by(subgroup, Gender, category) %>%
   summarise(count = n(), .groups = 'drop')
 
-#Joining P-values and Preparing the Table
+#Joining P-Values and Preparing the Table
 df_grouped <- df_grouped %>%
   left_join(p_values %>% select(subgroup, p_value), by = "subgroup")
 
 df_wide <- df_grouped %>%
   pivot_wider(names_from = category, values_from = count, values_fill = list(count = 0)) %>%
-  group_by(subgroup, sex) %>%
+  group_by(subgroup, Gender) %>%
   summarise(across(everything(), first), .groups = 'drop')
 
 #Presenting the Table
 df_final <- df_wide %>%
   mutate(
-    `p-value` = cell_spec(
+    `P-Value` = cell_spec(
       ifelse(p_value < 0.05, paste0("<b>", round(p_value, 4), "*</b>"), round(p_value, 4)),
       "html", escape = FALSE
     )
   )
 
 df_final %>%
-  select(subgroup, `p-value`, sex, F, R, G, O) %>%
-  arrange(subgroup, sex) %>%
+  select(subgroup, `P-Value`, Gender, F, R, G, O) %>%
+  arrange(subgroup, Gender) %>%
   kable("html", escape = FALSE) %>% 
   kable_styling(bootstrap_options = c("striped", "hover", "condensed")) %>%
   collapse_rows(columns = 1:2, valign = "middle")
@@ -250,18 +294,18 @@ df_final %>%
 
 Same procedure for each of the party subgroups, first for the career subsection
 ```{r}
-afd_career_female_cat$sex <- 'female'
-afd_career_male_cat$sex <- 'male'
-cdu_csu_career_female_cat$sex <- 'female'
-cdu_csu_career_male_cat$sex <- 'male'
-fdp_career_female_cat$sex <- 'female'
-fdp_career_male_cat$sex <- 'male'
-greens_career_female_cat$sex <- 'female'
-greens_career_male_cat$sex <- 'male'
-left_career_female_cat$sex <- 'female'
-left_career_male_cat$sex <- 'male'
-spd_career_female_cat$sex <- 'female'
-spd_career_male_cat$sex <- 'male'
+afd_career_female_cat$Gender <- 'female'
+afd_career_male_cat$Gender <- 'male'
+cdu_csu_career_female_cat$Gender <- 'female'
+cdu_csu_career_male_cat$Gender <- 'male'
+fdp_career_female_cat$Gender <- 'female'
+fdp_career_male_cat$Gender <- 'male'
+greens_career_female_cat$Gender <- 'female'
+greens_career_male_cat$Gender <- 'male'
+left_career_female_cat$Gender <- 'female'
+left_career_male_cat$Gender <- 'male'
+spd_career_female_cat$Gender <- 'female'
+spd_career_male_cat$Gender <- 'male'
 
 afd_career_female_cat$party <- 'afd'
 afd_career_male_cat$party <- 'afd'
@@ -295,12 +339,12 @@ combined_df_filled <- combined_df %>%
 
  p_values <- combined_df_filled %>%
   group_by(party) %>%
-  summarise(contingency = list(table(sex, category)),
+  summarise(contingency = list(table(Gender, category)),
             p_value = map_dbl(contingency, ~fisher.test(.)$p.value),
             .groups = 'drop')
  
  df_grouped <- combined_df %>%
-  group_by(party, sex, category) %>%
+  group_by(party, Gender, category) %>%
   summarise(count = n(), .groups = 'drop')
 
 df_grouped <- df_grouped %>%
@@ -308,13 +352,13 @@ df_grouped <- df_grouped %>%
 
 df_wide <- df_grouped %>%
   pivot_wider(names_from = category, values_from = count, values_fill = list(count = 0)) %>%
-  group_by(party, sex) %>%
+  group_by(party, Gender) %>%
   summarise(across(everything(), first), .groups = 'drop')%>%
   mutate(party = factor(party, levels = c("afd", "cdu/csu", "fdp", "spd", "greens", "left")))
 
 df_final <- df_wide %>%
   mutate(
-    `p-value` = cell_spec(
+    `P-Value` = cell_spec(
       ifelse(p_value < .001, paste0("<b>", round(p_value, 4), "***</b>"),
              ifelse(p_value < .01, paste0("<b>", round(p_value, 4), "**</b>"),
                     ifelse(p_value < .05, paste0("<b>", round(p_value, 4), "*</b>"), 
@@ -326,8 +370,8 @@ df_final <- df_wide %>%
 
 
 df_final <- df_final %>%
-  select(party, `p-value`, sex, F, R, G, O) %>%
-  arrange(party, sex) %>%
+  select(party, `P-Value`, Gender, F, R, G, O) %>%
+  arrange(party, Gender) %>%
   kable("html", escape = FALSE) %>% 
   kable_styling(bootstrap_options = c("striped", "hover", "condensed")) %>%
   collapse_rows(columns = 1:2, valign = "middle")
@@ -339,18 +383,18 @@ save_kable(df_final, file = here("visualisations", "pmi_party_career.png"))
 
 and second for the life subsections
 ```{r}
-afd_life_female_cat$sex <- 'female'
-afd_life_male_cat$sex <- 'male'
-cdu_csu_life_female_cat$sex <- 'female'
-cdu_csu_life_male_cat$sex <- 'male'
-fdp_life_female_cat$sex <- 'female'
-fdp_life_male_cat$sex <- 'male'
-greens_life_female_cat$sex <- 'female'
-greens_life_male_cat$sex <- 'male'
-left_life_female_cat$sex <- 'female'
-left_life_male_cat$sex <- 'male'
-spd_life_female_cat$sex <- 'female'
-spd_life_male_cat$sex <- 'male'
+afd_life_female_cat$Gender <- 'female'
+afd_life_male_cat$Gender <- 'male'
+cdu_csu_life_female_cat$Gender <- 'female'
+cdu_csu_life_male_cat$Gender <- 'male'
+fdp_life_female_cat$Gender <- 'female'
+fdp_life_male_cat$Gender <- 'male'
+greens_life_female_cat$Gender <- 'female'
+greens_life_male_cat$Gender <- 'male'
+left_life_female_cat$Gender <- 'female'
+left_life_male_cat$Gender <- 'male'
+spd_life_female_cat$Gender <- 'female'
+spd_life_male_cat$Gender <- 'male'
 
 afd_life_female_cat$party <- 'afd'
 afd_life_male_cat$party <- 'afd'
@@ -382,12 +426,12 @@ combined_df_filled <- combined_df %>%
 
  p_values <- combined_df_filled %>%
   group_by(party) %>%
-  summarise(contingency = list(table(sex, category)),
+  summarise(contingency = list(table(Gender, category)),
             p_value = map_dbl(contingency, ~fisher.test(.)$p.value),
             .groups = 'drop')
  
  df_grouped <- combined_df %>%
-  group_by(party, sex, category) %>%
+  group_by(party, Gender, category) %>%
   summarise(count = n(), .groups = 'drop')
 
 df_grouped <- df_grouped %>%
@@ -395,13 +439,13 @@ df_grouped <- df_grouped %>%
 
 df_wide <- df_grouped %>%
   pivot_wider(names_from = category, values_from = count, values_fill = list(count = 0)) %>%
-  group_by(party, sex) %>%
+  group_by(party, Gender) %>%
   summarise(across(everything(), first), .groups = 'drop')%>%
   mutate(party = factor(party, levels = c("afd", "cdu/csu", "fdp", "spd", "greens", "left")))
 
 df_final <- df_wide %>%
   mutate(
-    `p-value` = cell_spec(
+    `P-Value` = cell_spec(
       ifelse(p_value < .001, paste0("<b>", round(p_value, 4), "***</b>"),
              ifelse(p_value < .01, paste0("<b>", round(p_value, 4), "**</b>"),
                     ifelse(p_value < .05, paste0("<b>", round(p_value, 4), "*</b>"), 
@@ -413,8 +457,8 @@ df_final <- df_wide %>%
 
 
 df_final <-df_final %>%
-  select(party, `p-value`, sex, F, R, G, O) %>%
-  arrange(party, sex) %>%
+  select(party, `P-Value`, Gender, F, R, G, O) %>%
+  arrange(party, Gender) %>%
   kable("html", escape = FALSE) %>%  
   kable_styling(bootstrap_options = c("striped", "hover", "condensed")) %>%
   collapse_rows(columns = 1:2, valign = "middle")
@@ -430,10 +474,10 @@ save_kable(df_final, file = here("visualisations", "pmi_party_life.png"))
 
 The same code applied to the old and new version of the wikipedia texts, first for the life subsections
 ```{r}
-matched_new_life_female_cat$sex <- 'female'
-matched_new_life_male_cat$sex <- 'male'
-matched_old_life_female_cat$sex <- 'female'
-matched_old_life_male_cat$sex <- 'male'
+matched_new_life_female_cat$Gender <- 'female'
+matched_new_life_male_cat$Gender <- 'male'
+matched_old_life_female_cat$Gender <- 'female'
+matched_old_life_male_cat$Gender <- 'male'
 
 matched_new_life_female_cat$subgroup <- 'new'
 matched_new_life_male_cat$subgroup <- 'new'
@@ -447,12 +491,12 @@ combined_df <- rbind(matched_new_life_female_cat, matched_new_life_male_cat,
 
  p_values <- combined_df %>%
   group_by(subgroup) %>%
-  summarise(contingency = list(table(sex, category)),
+  summarise(contingency = list(table(Gender, category)),
             p_value = map_dbl(contingency, ~fisher.test(.)$p.value),
             .groups = 'drop')
  
  df_grouped <- combined_df %>%
-  group_by(subgroup, sex, category) %>%
+  group_by(subgroup, Gender, category) %>%
   summarise(count = n(), .groups = 'drop')
 
 df_grouped <- df_grouped %>%
@@ -460,12 +504,12 @@ df_grouped <- df_grouped %>%
 
 df_wide <- df_grouped %>%
   pivot_wider(names_from = category, values_from = count, values_fill = list(count = 0)) %>%
-  group_by(subgroup, sex) %>%
+  group_by(subgroup, Gender) %>%
   summarise(across(everything(), first), .groups = 'drop')
 
 df_final <- df_wide %>%
   mutate(
-    `p-value` = cell_spec(
+    `P-Value` = cell_spec(
       ifelse(p_value < .001, paste0("<b>", round(p_value, 4), "***</b>"),
              ifelse(p_value < .01, paste0("<b>", round(p_value, 4), "**</b>"),
                     ifelse(p_value < .05, paste0("<b>", round(p_value, 4), "*</b>"), 
@@ -477,8 +521,8 @@ df_final <- df_wide %>%
 
 
 df_final <- df_final %>%
-  select(subgroup, `p-value`, sex, F, R, G, O) %>%
-  arrange(subgroup, sex) %>%
+  select(subgroup, `P-Value`, Gender, F, R, G, O) %>%
+  arrange(subgroup, Gender) %>%
   kable("html", escape = FALSE) %>%  
   kable_styling(bootstrap_options = c("striped", "hover", "condensed")) %>%
   collapse_rows(columns = 1:2, valign = "middle")
@@ -490,10 +534,10 @@ save_kable(df_final, file = here("visualisations", "pmi_old_life.png"))
 
 and second for the career subsections
 ```{r}
-matched_new_career_female_cat$sex <- 'female'
-matched_new_career_male_cat$sex <- 'male'
-matched_old_career_female_cat$sex <- 'female'
-matched_old_career_male_cat$sex <- 'male'
+matched_new_career_female_cat$Gender <- 'female'
+matched_new_career_male_cat$Gender <- 'male'
+matched_old_career_female_cat$Gender <- 'female'
+matched_old_career_male_cat$Gender <- 'male'
 
 matched_new_career_female_cat$subgroup <- 'new'
 matched_new_career_male_cat$subgroup <- 'new'
@@ -507,12 +551,12 @@ combined_df <- rbind(matched_new_career_female_cat, matched_new_career_male_cat,
 
  p_values <- combined_df %>%
   group_by(subgroup) %>%
-  summarise(contingency = list(table(sex, category)),
+  summarise(contingency = list(table(Gender, category)),
             p_value = map_dbl(contingency, ~fisher.test(.)$p.value),
             .groups = 'drop')
  
  df_grouped <- combined_df %>%
-  group_by(subgroup, sex, category) %>%
+  group_by(subgroup, Gender, category) %>%
   summarise(count = n(), .groups = 'drop')
 
 df_grouped <- df_grouped %>%
@@ -520,12 +564,12 @@ df_grouped <- df_grouped %>%
 
 df_wide <- df_grouped %>%
   pivot_wider(names_from = category, values_from = count, values_fill = list(count = 0)) %>%
-  group_by(subgroup, sex) %>%
+  group_by(subgroup, Gender) %>%
   summarise(across(everything(), first), .groups = 'drop')
 
 df_final <- df_wide %>%
   mutate(
-    `p-value` = cell_spec(
+    `P-Value` = cell_spec(
       ifelse(p_value < .001, paste0("<b>", round(p_value, 4), "***</b>"),
              ifelse(p_value < .01, paste0("<b>", round(p_value, 4), "**</b>"),
                     ifelse(p_value < .05, paste0("<b>", round(p_value, 4), "*</b>"), 
@@ -537,8 +581,8 @@ df_final <- df_wide %>%
 
 
 df_final <- df_final %>%
-  select(subgroup, `p-value`, sex, F, R, G, O) %>%
-  arrange(subgroup, sex) %>%
+  select(subgroup, `P-Value`, Gender, F, R, G, O) %>%
+  arrange(subgroup, Gender) %>%
   kable("html", escape = FALSE) %>% 
   kable_styling(bootstrap_options = c("striped", "hover", "condensed")) %>%
   collapse_rows(columns = 1:2, valign = "middle")
@@ -551,12 +595,12 @@ save_kable(df_final, file = here("visualisations", "pmi_old_career.png"))
 
 The same code applied to the different age cohorts, first for the life subsections
 ```{r}
-first_cohort_life_female_cat$sex <- 'female'
-first_cohort_life_male_cat$sex <- 'male'
-second_cohort_life_female_cat$sex <- 'female'
-second_cohort_life_male_cat$sex <- 'male'
-third_cohort_life_female_cat$sex <- 'female'
-third_cohort_life_male_cat$sex <- 'male'
+first_cohort_life_female_cat$Gender <- 'female'
+first_cohort_life_male_cat$Gender <- 'male'
+second_cohort_life_female_cat$Gender <- 'female'
+second_cohort_life_male_cat$Gender <- 'male'
+third_cohort_life_female_cat$Gender <- 'female'
+third_cohort_life_male_cat$Gender <- 'male'
 
 first_cohort_life_female_cat$cohort <- 'before 1949'
 first_cohort_life_male_cat$cohort <- 'before 1949'
@@ -573,12 +617,12 @@ combined_df <- rbind(first_cohort_life_female_cat, first_cohort_life_male_cat,
 
  p_values <- combined_df %>%
   group_by(cohort) %>%
-  summarise(contingency = list(table(sex, category)),
+  summarise(contingency = list(table(Gender, category)),
             p_value = map_dbl(contingency, ~fisher.test(.)$p.value),
             .groups = 'drop')
  
  df_grouped <- combined_df %>%
-  group_by(cohort, sex, category) %>%
+  group_by(cohort, Gender, category) %>%
   summarise(count = n(), .groups = 'drop')
 
 df_grouped <- df_grouped %>%
@@ -586,14 +630,14 @@ df_grouped <- df_grouped %>%
 
 df_wide <- df_grouped %>%
   pivot_wider(names_from = category, values_from = count, values_fill = list(count = 0)) %>%
-  group_by(cohort, sex) %>%
+  group_by(cohort, Gender) %>%
   summarise(across(everything(), first), .groups = 'drop')%>%
   mutate(cohort = factor(cohort, levels = c("before 1949", "between 1950 and 1969", "after 1970")))
 
 
 df_final <- df_wide %>%
   mutate(
-    `p-value` = cell_spec(
+    `P-Value` = cell_spec(
       ifelse(p_value < .001, paste0("<b>", round(p_value, 4), "***</b>"),
              ifelse(p_value < .01, paste0("<b>", round(p_value, 4), "**</b>"),
                     ifelse(p_value < .05, paste0("<b>", round(p_value, 4), "*</b>"), 
@@ -605,12 +649,13 @@ df_final <- df_wide %>%
 
 
 df_final <- df_final %>%
-  select(cohort, `p-value`, sex, F, R, G, O) %>%
-  arrange(cohort, sex) %>%
+  select(cohort, `P-Value`, Gender, F, R, G, O) %>%
+  arrange(cohort, Gender) %>%
   kable("html", escape = FALSE) %>% 
   kable_styling(bootstrap_options = c("striped", "hover", "condensed")) %>%
   collapse_rows(columns = 1:2, valign = "middle")
 
+df_final
 save_kable(df_final, file = here("visualisations", "pmi_age_life.png"))
 
 
@@ -619,12 +664,12 @@ save_kable(df_final, file = here("visualisations", "pmi_age_life.png"))
 
 second for the career section
 ```{r}
-first_cohort_career_female_cat$sex <- 'female'
-first_cohort_career_male_cat$sex <- 'male'
-second_cohort_career_female_cat$sex <- 'female'
-second_cohort_career_male_cat$sex <- 'male'
-third_cohort_career_female_cat$sex <- 'female'
-third_cohort_career_male_cat$sex <- 'male'
+first_cohort_career_female_cat$Gender <- 'female'
+first_cohort_career_male_cat$Gender <- 'male'
+second_cohort_career_female_cat$Gender <- 'female'
+second_cohort_career_male_cat$Gender <- 'male'
+third_cohort_career_female_cat$Gender <- 'female'
+third_cohort_career_male_cat$Gender <- 'male'
 
 first_cohort_career_female_cat$cohort <- 'before 1949'
 first_cohort_career_male_cat$cohort <- 'before 1949'
@@ -641,12 +686,12 @@ combined_df <- rbind(first_cohort_career_female_cat, first_cohort_career_male_ca
 
  p_values <- combined_df %>%
   group_by(cohort) %>%
-  summarise(contingency = list(table(sex, category)),
+  summarise(contingency = list(table(Gender, category)),
             p_value = map_dbl(contingency, ~fisher.test(.)$p.value),
             .groups = 'drop')
  
  df_grouped <- combined_df %>%
-  group_by(cohort, sex, category) %>%
+  group_by(cohort, Gender, category) %>%
   summarise(count = n(), .groups = 'drop')
 
 df_grouped <- df_grouped %>%
@@ -654,14 +699,14 @@ df_grouped <- df_grouped %>%
 
 df_wide <- df_grouped %>%
   pivot_wider(names_from = category, values_from = count, values_fill = list(count = 0)) %>%
-  group_by(cohort, sex) %>%
+  group_by(cohort, Gender) %>%
   summarise(across(everything(), first), .groups = 'drop')%>%
   mutate(cohort = factor(cohort, levels = c("before 1949", "between 1950 and 1969", "after 1970")))
 
 
 df_final <- df_wide %>%
   mutate(
-    `p-value` = cell_spec(
+    `P-Value` = cell_spec(
       ifelse(p_value < .001, paste0("<b>", round(p_value, 4), "***</b>"),
              ifelse(p_value < .01, paste0("<b>", round(p_value, 4), "**</b>"),
                     ifelse(p_value < .05, paste0("<b>", round(p_value, 4), "*</b>"), 
@@ -673,13 +718,194 @@ df_final <- df_wide %>%
 
 
 df_final <- df_final %>%
-  select(cohort, `p-value`, sex, F, R, G, O) %>%
-  arrange(cohort, sex) %>%
+  select(cohort, `P-Value`, Gender, F, R, G, O) %>%
+  arrange(cohort, Gender) %>%
   kable("html", escape = FALSE) %>% 
   kable_styling(bootstrap_options = c("striped", "hover", "condensed")) %>%
   collapse_rows(columns = 1:2, valign = "middle")
 
-save_kable(df_final, file = here("visualisations", "pmi_age_careere.png"))
+save_kable(df_final, file = here("visualisations", "pmi_age_career.png"))
 
 ```
 
+sensitivity analysis career section
+```{r}
+S_deu_career_female_cat$Gender <- 'female'
+S_deu_career_male_cat$Gender <- 'male'
+S2_deu_career_female_cat$Gender <- 'female'
+S2_deu_career_male_cat$Gender <- 'male'
+S3_deu_career_female_cat$Gender <- 'female'
+S3_deu_career_male_cat$Gender <- 'male'
+S4_deu_career_female_cat$Gender <- 'female'
+S4_deu_career_male_cat$Gender <- 'male'
+deu_career_female_cat$Gender <- 'female'
+deu_career_male_cat$Gender <- 'male'
+
+S_deu_career_female_cat$Threshold <- '0.001'
+S_deu_career_male_cat$Threshold <- '0.001'
+S2_deu_career_female_cat$Threshold <- '0.0007'
+S2_deu_career_male_cat$Threshold <- '0.0007'
+S3_deu_career_female_cat$Threshold <- '0.0004'
+S3_deu_career_male_cat$Threshold <- "0.0004"
+S4_deu_career_female_cat$Threshold <- '0.0003'
+S4_deu_career_male_cat$Threshold <- "0.0003"
+deu_career_female_cat$Threshold <- '0.0002'
+deu_career_male_cat$Threshold <- '0.0002'
+
+combined_df <- rbind(deu_career_female_cat, deu_career_male_cat, S_deu_career_female_cat, S_deu_career_male_cat,
+  S2_deu_career_female_cat, S2_deu_career_male_cat, 
+  S3_deu_career_female_cat, S3_deu_career_male_cat)
+
+
+
+
+
+ p_values <- combined_df %>%
+  group_by(Threshold) %>%
+  summarise(contingency = list(table(Gender, category)),
+            p_value = map_dbl(contingency, ~fisher.test(.)$p.value),
+            .groups = 'drop')
+ 
+ df_grouped <- combined_df %>%
+  group_by(Threshold, Gender, category) %>%
+  summarise(count = n(), .groups = 'drop')
+
+df_grouped <- df_grouped %>%
+  left_join(p_values %>% select(Threshold, p_value), by = "Threshold")
+
+df_wide <- df_grouped %>%
+  pivot_wider(names_from = category, values_from = count, values_fill = list(count = 0)) %>%
+  group_by(Threshold, Gender) %>%
+  summarise(
+    across(everything(), first),
+    "Number of Words" = sum(F, R, G, O),  # Assuming F, R, G, O are your category columns containing counts
+    .groups = 'drop'
+  )
+
+df_final <- df_wide %>%
+  mutate(
+    `P-Value` = cell_spec(
+      ifelse(p_value < .001, paste0("<b>", round(p_value, 4), "***</b>"),
+             ifelse(p_value < .01, paste0("<b>", round(p_value, 4), "**</b>"),
+                    ifelse(p_value < .05, paste0("<b>", round(p_value, 4), "*</b>"), 
+                           ifelse(p_value < .1, paste0(round(p_value, 4), "."),
+                                  paste0(round(p_value, 4), ""))))),
+      "html", escape = FALSE
+    )
+  )
+
+
+df_final <- df_wide %>%
+  mutate(
+    `P-Value` = cell_spec(
+      ifelse(p_value < .001, paste0("<b>", round(p_value, 4), "***</b>"),
+             ifelse(p_value < .01, paste0("<b>", round(p_value, 4), "**</b>"),
+                    ifelse(p_value < .05, paste0("<b>", round(p_value, 4), "*</b>"),
+                           ifelse(p_value < .1, paste0(round(p_value, 4), "."),
+                                  paste0(round(p_value, 4), ""))))),
+      "html", escape = FALSE
+    )
+  ) %>%
+  select(Threshold, `P-Value`, Gender, F, R, G, O, "Number of Words") %>%
+  arrange(Threshold, Gender) %>%
+  kable("html", escape = FALSE) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed")) %>%
+  collapse_rows(columns = 1:2, valign = "middle")
+
+
+df_final
+
+kableExtra::save_kable(df_final, file = here("visualisations", "sensitivity_career.png"))
+
+```
+
+
+sensitivity analysis life section
+```{r}
+S_deu_life_female_cat$Gender <- 'female'
+S_deu_life_male_cat$Gender <- 'male'
+S2_deu_life_female_cat$Gender <- 'female'
+S2_deu_life_male_cat$Gender <- 'male'
+S3_deu_life_female_cat$Gender <- 'female'
+S3_deu_life_male_cat$Gender <- 'male'
+S4_deu_life_female_cat$Gender <- 'female'
+S4_deu_life_male_cat$Gender <- 'male'
+deu_life_female_cat$Gender <- 'female'
+deu_life_male_cat$Gender <- 'male'
+
+S_deu_life_female_cat$Threshold <- '0.001'
+S_deu_life_male_cat$Threshold <- '0.001'
+S2_deu_life_female_cat$Threshold <- '0.0007'
+S2_deu_life_male_cat$Threshold <- '0.0007'
+S3_deu_life_female_cat$Threshold <- '0.0004'
+S3_deu_life_male_cat$Threshold <- "0.0004"
+S4_deu_life_female_cat$Threshold <- '0.0003'
+S4_deu_life_male_cat$Threshold <- "0.0003"
+deu_life_female_cat$Threshold <- '0.0002'
+deu_life_male_cat$Threshold <- '0.0002'
+
+combined_df <- rbind(deu_life_female_cat, deu_life_male_cat, S_deu_life_female_cat, S_deu_life_male_cat,
+  S2_deu_life_female_cat, S2_deu_life_male_cat, 
+  S3_deu_life_female_cat, S3_deu_life_male_cat)
+
+
+
+ p_values <- combined_df %>%
+  group_by(Threshold) %>%
+  summarise(contingency = list(table(Gender, category)),
+            p_value = map_dbl(contingency, ~fisher.test(.)$p.value),
+            .groups = 'drop')
+ 
+ df_grouped <- combined_df %>%
+  group_by(Threshold, Gender, category) %>%
+  summarise(count = n(), .groups = 'drop')
+
+df_grouped <- df_grouped %>%
+  left_join(p_values %>% select(Threshold, p_value), by = "Threshold")
+
+df_wide <- df_grouped %>%
+  pivot_wider(names_from = category, values_from = count, values_fill = list(count = 0)) %>%
+  group_by(Threshold, Gender) %>%
+  summarise(
+    across(everything(), first),
+    "Number of Words" = sum(F, R, G, O),  # Assuming F, R, G, O are your category columns containing counts
+    .groups = 'drop'
+  )
+
+df_final <- df_wide %>%
+  mutate(
+    `P-Value` = cell_spec(
+      ifelse(p_value < .001, paste0("<b>", round(p_value, 4), "***</b>"),
+             ifelse(p_value < .01, paste0("<b>", round(p_value, 4), "**</b>"),
+                    ifelse(p_value < .05, paste0("<b>", round(p_value, 4), "*</b>"), 
+                           ifelse(p_value < .1, paste0(round(p_value, 4), "."),
+                                  paste0(round(p_value, 4), ""))))),
+      "html", escape = FALSE
+    )
+  )
+
+
+df_final <- df_wide %>%
+  mutate(
+    `P-Value` = cell_spec(
+      ifelse(p_value < .001, paste0("<b>", round(p_value, 4), "***</b>"),
+             ifelse(p_value < .01, paste0("<b>", round(p_value, 4), "**</b>"),
+                    ifelse(p_value < .05, paste0("<b>", round(p_value, 4), "*</b>"),
+                           ifelse(p_value < .1, paste0(round(p_value, 4), "."),
+                                  paste0(round(p_value, 4), ""))))),
+      "html", escape = FALSE
+    )
+  ) %>%
+  select(Threshold, `P-Value`, Gender, F, R, G, O, "Number of Words") %>%
+  arrange(Threshold, Gender) %>%
+  kable("html", escape = FALSE) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed")) %>%
+  collapse_rows(columns = 1:2, valign = "middle")
+
+
+df_final
+
+options(width = 10, height = 8, dpi = 600)
+
+kableExtra::save_kable(df_final, file = here("visualisations", "sensitivity_life.png"))
+```

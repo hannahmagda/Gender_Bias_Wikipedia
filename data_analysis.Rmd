@@ -237,8 +237,8 @@ process_corpus <- function(corpus, gender_neutral_replacements, words_to_remove)
 }
 
 
-
-calculate_pmi_and_filter <- function(corpus_transposed, corpus_name, min_p = 0.0002) {
+#main analysis uses threshhold min_p as 0.0002 - senstivity is shown with value 0.001 as used by Wagner et al.
+calculate_pmi_and_filter <- function(corpus_transposed, corpus_name, min_p = 0.0003) {
   # Calculate total counts
   total_male_count <- sum(corpus_transposed$male)
   total_female_count <- sum(corpus_transposed$female)
@@ -277,6 +277,89 @@ calculate_pmi_and_filter <- function(corpus_transposed, corpus_name, min_p = 0.0
 }
 ```
 
+Analysis for different cohorts - create dataframe per cohort
+```{r}
+
+#split in relatively equaly sized cohorts
+# cohort_assignment <- function(year) {
+#   if(year < 1939) {
+#     return("first_cohort")
+#   } else if(year >= 1939 & year <= 1949) {
+#     return("second_cohort")
+#   } else if(year >= 1949 & year <= 1959) {
+#     return("third_cohort")
+#   } else if(year >= 1959 & year <= 1969) {
+#     return("fourth_cohort")
+#   } else {
+#     return("fifth_cohort")
+#   }
+# }
+
+cohort_assignment <- function(year) {
+  if(year < 1949) {
+    return("cohort1")
+  } else if(year >= 1949 & year <= 1969) {
+    return("cohort2")
+  } else {
+    return("cohort3")
+  }
+}
+
+
+# Anwenden der Funktion auf den birthyear, um die Kohortenzugehörigkeit als Vektor zu erhalten
+cohort_vector <- sapply(matched_data$birthyear, cohort_assignment)
+
+# Aufteilen des DataFrames in eine Liste von DataFrames basierend auf dem Kohortenvektor
+list_of_dfs <- split(matched_data, cohort_vector)
+
+# Zugriff auf die separaten DataFrames direkt aus der Liste
+# first_cohort <- list_of_dfs$first_cohort
+# second_cohort <- list_of_dfs$second_cohort
+# third_cohort <- list_of_dfs$third_cohort
+# fourth_cohort <- list_of_dfs$fourth_cohort
+# fifth_cohort <- list_of_dfs$fifth_cohort
+
+cohort1 <- list_of_dfs$cohort1
+cohort2 <- list_of_dfs$cohort2
+cohort3 <- list_of_dfs$cohort3
+
+```
+
+
+
+Analysis for different parties - create dataframe per party
+```{r}
+parties <- c("FDP", "AfD", "BÜNDNIS 90/DIE GRÜNEN", "CDU", "CSU", "SPD", "DIE LINKE")
+
+# Liste, um die separaten DataFrames zu speichern
+party_dfs <- list()
+
+# Schleife über die Namen der Parteien
+for(party in parties) {
+  if(party == "CDU" || party == "CSU") {
+    # Füge Daten für CDU und CSU zusammen, falls noch nicht geschehen
+    if(!"CDU_CSU" %in% names(party_dfs)) {
+      party_dfs[["CDU_CSU"]] <- matched_data[matched_data$party %in% c("CDU", "CSU"), ]
+    }
+  } else {
+    # Erstelle einen DataFrame für jede andere Partei
+    party_dfs[[party]] <- matched_data[matched_data$party == party, ]
+  }
+}
+
+# Zugriff auf den kombinierten DataFrame von CDU und CSU
+cdu_csu_df <- party_dfs[["CDU_CSU"]]
+greens_df <- party_dfs[["BÜNDNIS 90/DIE GRÜNEN"]]
+left_df <- party_dfs[["DIE LINKE"]]
+fdp_df <- party_dfs[["FDP"]]
+spd_df <- party_dfs[["SPD"]]
+afd_df <- party_dfs[["AfD"]]
+
+```
+
+
+
+
 
 apply functions:
 
@@ -293,47 +376,6 @@ apply functions:
 # # Step 3: 
 # results <- calculate_pmi_and_filter(corpus_transposed, "deu_life")
 #
-# #matched sample, old life section########################################################################################
-# # Step 1:
-corpus <- prepare_corpus(matched_data, "extracted_text_old")
-
-# Step 2:
-corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
-
-# Step 3:
-results <- calculate_pmi_and_filter(corpus_transposed, "matched_old_life")
-
-# #matched sample, new life section########################################################################################
-# Step 1:
-corpus <- prepare_corpus(matched_data, "extracted_text_new")
-
-# Step 2:
-corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
-
-# Step 3:
-results <- calculate_pmi_and_filter(corpus_transposed, "matched_new_life")
-
-
-# #matched sample, old career section########################################################################################
-# # Step 1:
-corpus <- prepare_corpus(matched_data, "career_text_old")
-
-# Step 2:
-corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
-
-# Step 3:
-results <- calculate_pmi_and_filter(corpus_transposed, "matched_old_career")
-
-# #matched sample, new career section########################################################################################
-# Step 1:
-corpus <- prepare_corpus(matched_data, "career_text_new")
-
-# Step 2:
-corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
-
-# Step 3:
-results <- calculate_pmi_and_filter(corpus_transposed, "matched_new_career")
-
 # #whole 
 
 # #whole sample career/party section########################################################################################
@@ -367,6 +409,51 @@ results <- calculate_pmi_and_filter(corpus_transposed, "matched_new_career")
 # results <- calculate_pmi_and_filter(corpus_transposed, "matched_career")
 # 
 # ##################################################################################################################################
+
+####################old vs. new data 
+
+# # #matched sample, old life section########################################################################################
+# # # Step 1:
+# corpus <- prepare_corpus(matched_data, "extracted_text_old")
+# 
+# # Step 2:
+# corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
+# 
+# # Step 3:
+# results <- calculate_pmi_and_filter(corpus_transposed, "matched_old_life")
+# 
+# # #matched sample, new life section########################################################################################
+# # Step 1:
+# corpus <- prepare_corpus(matched_data, "extracted_text_new")
+# 
+# # Step 2:
+# corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
+# 
+# # Step 3:
+# results <- calculate_pmi_and_filter(corpus_transposed, "matched_new_life")
+# 
+# 
+# # #matched sample, old career section########################################################################################
+# # # Step 1:
+# corpus <- prepare_corpus(matched_data, "career_text_old")
+# 
+# # Step 2:
+# corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
+# 
+# # Step 3:
+# results <- calculate_pmi_and_filter(corpus_transposed, "matched_old_career")
+# 
+# # #matched sample, new career section########################################################################################
+# # Step 1:
+# corpus <- prepare_corpus(matched_data, "career_text_new")
+# 
+# # Step 2:
+# corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
+# 
+# # Step 3:
+# results <- calculate_pmi_and_filter(corpus_transposed, "matched_new_career")
+
+####################################################################################################################
 # 
 # #cohort 1 career section########################################################################################
 # # Step 1: 
@@ -481,68 +568,68 @@ results <- calculate_pmi_and_filter(corpus_transposed, "matched_new_career")
 
 #cohorts - 3 groups
 #cohort 3 life section########################################################################################
-# Step 1:
-corpus <- prepare_corpus(cohort3, "extracted_text")
-
-# Step 2:
-corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
-
-# Step 3:
-results <- calculate_pmi_and_filter(corpus_transposed, "third_cohort_life")
-
-
-#cohort 2 life section########################################################################################
-# Step 1:
-corpus <- prepare_corpus(cohort2, "extracted_text")
-
-# Step 2:
-corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
-
-# Step 3:
-results <- calculate_pmi_and_filter(corpus_transposed, "second_cohort_life")
-
-#cohort 1 life section########################################################################################
-# Step 1:
-corpus <- prepare_corpus(cohort1, "extracted_text")
-
-# Step 2:
-corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
-
-# Step 3:
-results <- calculate_pmi_and_filter(corpus_transposed, "first_cohort_life")
-
-
-#cohort 3 career section########################################################################################
-# Step 1:
-corpus <- prepare_corpus(cohort3, "career_text")
-
-# Step 2:
-corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
-
-# Step 3:
-results <- calculate_pmi_and_filter(corpus_transposed, "third_cohort_career")
-
-#cohort 2 career section########################################################################################
-# Step 1:
-corpus <- prepare_corpus(cohort2, "career_text")
-
-# Step 2:
-corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
-
-# Step 3:
-results <- calculate_pmi_and_filter(corpus_transposed, "second_cohort_career")
-
-#cohort 1 career section########################################################################################
-# Step 1:
-corpus <- prepare_corpus(cohort1, "career_text")
-
-# Step 2:
-corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
-
-# Step 3:
-results <- calculate_pmi_and_filter(corpus_transposed, "first_cohort_career")
-
+# # Step 1:
+# corpus <- prepare_corpus(cohort3, "extracted_text")
 # 
+# # Step 2:
+# corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
+# 
+# # Step 3:
+# results <- calculate_pmi_and_filter(corpus_transposed, "third_cohort_life")
+# 
+# 
+# #cohort 2 life section########################################################################################
+# # Step 1:
+# corpus <- prepare_corpus(cohort2, "extracted_text")
+# 
+# # Step 2:
+# corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
+# 
+# # Step 3:
+# results <- calculate_pmi_and_filter(corpus_transposed, "second_cohort_life")
+# 
+# #cohort 1 life section########################################################################################
+# # Step 1:
+# corpus <- prepare_corpus(cohort1, "extracted_text")
+# 
+# # Step 2:
+# corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
+# 
+# # Step 3:
+# results <- calculate_pmi_and_filter(corpus_transposed, "first_cohort_life")
+# 
+# 
+# #cohort 3 career section########################################################################################
+# # Step 1:
+# corpus <- prepare_corpus(cohort3, "career_text")
+# 
+# # Step 2:
+# corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
+# 
+# # Step 3:
+# results <- calculate_pmi_and_filter(corpus_transposed, "third_cohort_career")
+# 
+# #cohort 2 career section########################################################################################
+# # Step 1:
+# corpus <- prepare_corpus(cohort2, "career_text")
+# 
+# # Step 2:
+# corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
+# 
+# # Step 3:
+# results <- calculate_pmi_and_filter(corpus_transposed, "second_cohort_career")
+# 
+# #cohort 1 career section########################################################################################
+# # Step 1:
+# corpus <- prepare_corpus(cohort1, "career_text")
+# 
+# # Step 2:
+# corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
+# 
+# # Step 3:
+# results <- calculate_pmi_and_filter(corpus_transposed, "first_cohort_career")
+# 
+# # 
 # #afd life section########################################################################################
 # # Step 1: 
 # corpus <- prepare_corpus(afd_df, "extracted_text")
@@ -663,84 +750,103 @@ results <- calculate_pmi_and_filter(corpus_transposed, "first_cohort_career")
 # # Step 3: 
 # results <- calculate_pmi_and_filter(corpus_transposed, "spd_career")
 
+
+
+
 ```
 
-Analysis for different cohorts - create dataframe per cohort
+Sensitivity Analysis for different thresholds
 ```{r}
 
-#split in relatively equaly sized cohorts
-# cohort_assignment <- function(year) {
-#   if(year < 1939) {
-#     return("first_cohort")
-#   } else if(year >= 1939 & year <= 1949) {
-#     return("second_cohort")
-#   } else if(year >= 1949 & year <= 1959) {
-#     return("third_cohort")
-#   } else if(year >= 1959 & year <= 1969) {
-#     return("fourth_cohort")
-#   } else {
-#     return("fifth_cohort")
-#   }
-# }
+######## IMOPRTANT: Set min_p to the respective threshhold you want to test! #########################################
 
-cohort_assignment <- function(year) {
-  if(year < 1949) {
-    return("cohort1")
-  } else if(year >= 1949 & year <= 1969) {
-    return("cohort2")
-  } else {
-    return("cohort3")
-  }
-}
+# #whole sample, life section threshold 0.001 ########################################################################################
+# Step 1:
+corpus <- prepare_corpus(deu, "extracted_text")
+
+# Step 2:
+corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
+
+# Step 3:
+results <- calculate_pmi_and_filter(corpus_transposed, "S_deu_life")
 
 
-# Anwenden der Funktion auf den birthyear, um die Kohortenzugehörigkeit als Vektor zu erhalten
-cohort_vector <- sapply(matched_data$birthyear, cohort_assignment)
+# #whole sample career/party section########################################################################################
+# # Step 1:
+corpus <- prepare_corpus(deu, "career_text")
 
-# Aufteilen des DataFrames in eine Liste von DataFrames basierend auf dem Kohortenvektor
-list_of_dfs <- split(matched_data, cohort_vector)
+# Step 2:
+corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
 
-# Zugriff auf die separaten DataFrames direkt aus der Liste
-# first_cohort <- list_of_dfs$first_cohort
-# second_cohort <- list_of_dfs$second_cohort
-# third_cohort <- list_of_dfs$third_cohort
-# fourth_cohort <- list_of_dfs$fourth_cohort
-# fifth_cohort <- list_of_dfs$fifth_cohort
+# Step 3:
+results <- calculate_pmi_and_filter(corpus_transposed, "S_deu_career")
 
-cohort1 <- list_of_dfs$cohort1
-cohort2 <- list_of_dfs$cohort2
-cohort3 <- list_of_dfs$cohort3
+##########################################################################################################################
 
+# #whole sample, life section threshold 0.0007########################################################################################
+# Step 1:
+corpus <- prepare_corpus(deu, "extracted_text")
+
+# Step 2:
+corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
+
+# Step 3:
+results <- calculate_pmi_and_filter(corpus_transposed, "S2_deu_life")
+
+
+# #whole sample career/party section########################################################################################
+# # Step 1:
+corpus <- prepare_corpus(deu, "career_text")
+
+# Step 2:
+corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
+
+# Step 3:
+results <- calculate_pmi_and_filter(corpus_transposed, "S2_deu_career")
+
+##########################################################################################################################
+
+# #whole sample career/party section threshold 0.0004 ########################################################################################
+# # Step 1:
+
+corpus <- prepare_corpus(deu, "extracted_text")
+
+# Step 2:
+corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
+
+# Step 3:
+results <- calculate_pmi_and_filter(corpus_transposed, "S3_deu_life")
+
+
+# #whole sample career/party section Threshold 0.0003########################################################################################
+# # Step 1:
+corpus <- prepare_corpus(deu, "career_text")
+
+# Step 2:
+corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
+
+# Step 3:
+results <- calculate_pmi_and_filter(corpus_transposed, "S4_deu_career")
+
+
+
+corpus <- prepare_corpus(deu, "extracted_text")
+
+# Step 2:
+corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
+
+# Step 3:
+results <- calculate_pmi_and_filter(corpus_transposed, "S4_deu_life")
+
+
+# #whole sample career/party section########################################################################################
+# # Step 1:
+corpus <- prepare_corpus(deu, "career_text")
+
+# Step 2:
+corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
+
+# Step 3:
+results <- calculate_pmi_and_filter(corpus_transposed, "S4_deu_career")
 ```
 
-
-
-Analysis for different parties - create dataframe per party
-```{r}
-parties <- c("FDP", "AfD", "BÜNDNIS 90/DIE GRÜNEN", "CDU", "CSU", "SPD", "DIE LINKE")
-
-# Liste, um die separaten DataFrames zu speichern
-party_dfs <- list()
-
-# Schleife über die Namen der Parteien
-for(party in parties) {
-  if(party == "CDU" || party == "CSU") {
-    # Füge Daten für CDU und CSU zusammen, falls noch nicht geschehen
-    if(!"CDU_CSU" %in% names(party_dfs)) {
-      party_dfs[["CDU_CSU"]] <- matched_data[matched_data$party %in% c("CDU", "CSU"), ]
-    }
-  } else {
-    # Erstelle einen DataFrame für jede andere Partei
-    party_dfs[[party]] <- matched_data[matched_data$party == party, ]
-  }
-}
-
-# Zugriff auf den kombinierten DataFrame von CDU und CSU
-cdu_csu_df <- party_dfs[["CDU_CSU"]]
-greens_df <- party_dfs[["BÜNDNIS 90/DIE GRÜNEN"]]
-left_df <- party_dfs[["DIE LINKE"]]
-fdp_df <- party_dfs[["FDP"]]
-spd_df <- party_dfs[["SPD"]]
-afd_df <- party_dfs[["AfD"]]
-
-```
