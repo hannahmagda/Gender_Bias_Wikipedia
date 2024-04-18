@@ -1333,10 +1333,10 @@ library(tidyverse)
 library(Hmisc)
 library(ggplot2)
 
-cors <- function(df) {
-  M <- Hmisc::rcorr(as.matrix(df)) 
-  return(list(cor = as.data.frame(M$r), p = as.data.frame(M$P))) 
-}
+# cors <- function(df) {
+#   M <- Hmisc::rcorr(as.matrix(df)) 
+#   return(list(cor = as.data.frame(M$r), p = as.data.frame(M$P))) 
+# }
 
 formatted_cors <- function(df) {
   Mdf <- cors(df)
@@ -1370,6 +1370,47 @@ formatted_cors(deu[, c("total_edits", "text_length", "number_of_links",
 
 
 ############
+```
+
+## Correlations
+
+```{r}
+
+```
+
+
+```{r, height = 5}
+# select variables of interest as numeric variables
+cor_data <- deu %>% select(total_edits, text_length, number_of_links, 
+                       total_service, total_traffic)
+```
+
+### Correlation Matrix
+
+```{r, height = 5}
+# calculate correlation matrix
+COR <- cor(cor_data, method = "pearson")
+
+COR
+
+custom_labels <- c("Total Edits", "Text Lenght", "Number of Links", "Total Servise", "Total Page Traffic")
+
+colnames(COR) <- custom_labels
+rownames(COR) <- custom_labels
+
+
+# plot
+plot_cor <- corrplot(COR, method = "number", type = 'lower', bg = "grey", tl.col = "black", cl.pos = 'n', addgrid.col= "white")
+
+pdf_file <- here("visualisations", "correlation.pdf")
+
+# Save the plot as a PDF file
+pdf(file = pdf_file)
+corrplot(COR, method = "number", type = 'lower', bg = "grey", tl.col = "black", cl.pos = 'n', addgrid.col= "white")
+dev.off()
+```
+
+
 ```
 
 
