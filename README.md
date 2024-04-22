@@ -6,7 +6,6 @@ This repository contains R Mardowns that use the Comparative legislator Database
 
 The raw and cleaned data is too big for github and can thus be found in this google drive foulder: https://drive.google.com/drive/u/0/folders/1gEd6ji1lLCFKnp0cOyAHSK_YQGQGXnXs?q=sharedwith:public%20parent:1gEd6ji1lLCFKnp0cOyAHSK_YQGQGXnXs
 
-Before running the R Markdown documents, ensure you have installed R and RStudio. Also make sure to run the code in the setup.R file before working with the mardown files as this will assure that all necessary packages are installed.
 
 ## Structure
 
