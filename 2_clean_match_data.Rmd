@@ -174,12 +174,12 @@ deu <- deu %>%
 #################################################################################################################
 # same procedure for the old version data
 
-#extract "life" section
+#extract old "life" section
 deu <- deu %>%
   mutate(extracted_text_old = map_chr(old_text, ~possibly(extract_content, otherwise = NA_character_)(.x, section = 2)))
 
 
-#extract "career" section
+#extract old "career" section
 deu <- deu %>%
   mutate(career_text_old = map_chr(old_text, ~possibly(extract_content, otherwise = NA_character_)(.x, section = 3)))
 
@@ -285,7 +285,7 @@ matched_data$sex <- ifelse(matched_data$sex == 0, "male", "female")
 ```
 
 
-save cleanded and matched data
+save cleaned and matched data
 ```{r}
 write.csv(deu, file = "data/clean/deu.csv", row.names = FALSE)
 write.csv(matched_data, file = "data/clean/matched_data.csv", row.names = FALSE)

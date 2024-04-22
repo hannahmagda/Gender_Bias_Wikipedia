@@ -238,7 +238,7 @@ process_corpus <- function(corpus, gender_neutral_replacements, words_to_remove)
 
 
 #main analysis uses threshhold min_p as 0.0002 - senstivity is shown with value 0.001 as used by Wagner et al.
-calculate_pmi_and_filter <- function(corpus_transposed, corpus_name, min_p = 0.0003) {
+calculate_pmi_and_filter <- function(corpus_transposed, corpus_name, min_p = 0.0002) {
   # Calculate total counts
   total_male_count <- sum(corpus_transposed$male)
   total_female_count <- sum(corpus_transposed$female)
@@ -280,21 +280,6 @@ calculate_pmi_and_filter <- function(corpus_transposed, corpus_name, min_p = 0.0
 Analysis for different cohorts - create dataframe per cohort
 ```{r}
 
-#split in relatively equaly sized cohorts
-# cohort_assignment <- function(year) {
-#   if(year < 1939) {
-#     return("first_cohort")
-#   } else if(year >= 1939 & year <= 1949) {
-#     return("second_cohort")
-#   } else if(year >= 1949 & year <= 1959) {
-#     return("third_cohort")
-#   } else if(year >= 1959 & year <= 1969) {
-#     return("fourth_cohort")
-#   } else {
-#     return("fifth_cohort")
-#   }
-# }
-
 cohort_assignment <- function(year) {
   if(year < 1949) {
     return("cohort1")
@@ -312,12 +297,6 @@ cohort_vector <- sapply(matched_data$birthyear, cohort_assignment)
 # Aufteilen des DataFrames in eine Liste von DataFrames basierend auf dem Kohortenvektor
 list_of_dfs <- split(matched_data, cohort_vector)
 
-# Zugriff auf die separaten DataFrames direkt aus der Liste
-# first_cohort <- list_of_dfs$first_cohort
-# second_cohort <- list_of_dfs$second_cohort
-# third_cohort <- list_of_dfs$third_cohort
-# fourth_cohort <- list_of_dfs$fourth_cohort
-# fifth_cohort <- list_of_dfs$fifth_cohort
 
 cohort1 <- list_of_dfs$cohort1
 cohort2 <- list_of_dfs$cohort2
@@ -758,95 +737,94 @@ apply functions:
 Sensitivity Analysis for different thresholds
 ```{r}
 
-######## IMOPRTANT: Set min_p to the respective threshhold you want to test! #########################################
-
-# #whole sample, life section threshold 0.001 ########################################################################################
-# Step 1:
-corpus <- prepare_corpus(deu, "extracted_text")
-
-# Step 2:
-corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
-
-# Step 3:
-results <- calculate_pmi_and_filter(corpus_transposed, "S_deu_life")
-
-
-# #whole sample career/party section########################################################################################
+# ######## IMOPRTANT: Set min_p to the respective threshhold you want to test! #########################################
+# 
+# # #whole sample, life section threshold 0.001 ########################################################################################
 # # Step 1:
-corpus <- prepare_corpus(deu, "career_text")
-
-# Step 2:
-corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
-
-# Step 3:
-results <- calculate_pmi_and_filter(corpus_transposed, "S_deu_career")
-
-##########################################################################################################################
-
-# #whole sample, life section threshold 0.0007########################################################################################
-# Step 1:
-corpus <- prepare_corpus(deu, "extracted_text")
-
-# Step 2:
-corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
-
-# Step 3:
-results <- calculate_pmi_and_filter(corpus_transposed, "S2_deu_life")
-
-
-# #whole sample career/party section########################################################################################
+# corpus <- prepare_corpus(deu, "extracted_text")
+# 
+# # Step 2:
+# corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
+# 
+# # Step 3:
+# results <- calculate_pmi_and_filter(corpus_transposed, "S_deu_life")
+# 
+# 
+# # #whole sample career/party section########################################################################################
+# # # Step 1:
+# corpus <- prepare_corpus(deu, "career_text")
+# 
+# # Step 2:
+# corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
+# 
+# # Step 3:
+# results <- calculate_pmi_and_filter(corpus_transposed, "S_deu_career")
+# 
+# ##########################################################################################################################
+# 
+# # #whole sample, life section threshold 0.0007########################################################################################
 # # Step 1:
-corpus <- prepare_corpus(deu, "career_text")
-
-# Step 2:
-corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
-
-# Step 3:
-results <- calculate_pmi_and_filter(corpus_transposed, "S2_deu_career")
-
-##########################################################################################################################
-
-# #whole sample career/party section threshold 0.0004 ########################################################################################
-# # Step 1:
-
-corpus <- prepare_corpus(deu, "extracted_text")
-
-# Step 2:
-corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
-
-# Step 3:
-results <- calculate_pmi_and_filter(corpus_transposed, "S3_deu_life")
-
-
-# #whole sample career/party section Threshold 0.0003########################################################################################
-# # Step 1:
-corpus <- prepare_corpus(deu, "career_text")
-
-# Step 2:
-corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
-
-# Step 3:
-results <- calculate_pmi_and_filter(corpus_transposed, "S4_deu_career")
-
-
-
-corpus <- prepare_corpus(deu, "extracted_text")
-
-# Step 2:
-corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
-
-# Step 3:
-results <- calculate_pmi_and_filter(corpus_transposed, "S4_deu_life")
-
-
-# #whole sample career/party section########################################################################################
-# # Step 1:
-corpus <- prepare_corpus(deu, "career_text")
-
-# Step 2:
-corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
-
-# Step 3:
-results <- calculate_pmi_and_filter(corpus_transposed, "S4_deu_career")
+# corpus <- prepare_corpus(deu, "extracted_text")
+# 
+# # Step 2:
+# corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
+# 
+# # Step 3:
+# results <- calculate_pmi_and_filter(corpus_transposed, "S2_deu_life")
+# 
+# 
+# # #whole sample career/party section########################################################################################
+# # # Step 1:
+# corpus <- prepare_corpus(deu, "career_text")
+# 
+# # Step 2:
+# corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
+# 
+# # Step 3:
+# results <- calculate_pmi_and_filter(corpus_transposed, "S2_deu_career")
+# 
+# ##########################################################################################################################
+# 
+# # #whole sample career/party section threshold 0.0004 ########################################################################################
+# # # Step 1:
+# 
+# corpus <- prepare_corpus(deu, "extracted_text")
+# 
+# # Step 2:
+# corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
+# 
+# # Step 3:
+# results <- calculate_pmi_and_filter(corpus_transposed, "S3_deu_life")
+# 
+# 
+# # #whole sample career/party section Threshold 0.0003########################################################################################
+# # # Step 1:
+# corpus <- prepare_corpus(deu, "career_text")
+# 
+# # Step 2:
+# corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
+# 
+# # Step 3:
+# results <- calculate_pmi_and_filter(corpus_transposed, "S4_deu_career")
+# 
+# 
+# 
+# corpus <- prepare_corpus(deu, "extracted_text")
+# 
+# # Step 2:
+# 
+# # Step 3:
+# results <- calculate_pmi_and_filter(corpus_transposed, "S4_deu_life")
+# 
+# 
+# # #whole sample career/party section########################################################################################
+# # # Step 1:
+# corpus <- prepare_corpus(deu, "career_text")
+# 
+# # Step 2:
+# corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
+# 
+# # Step 3:
+# results <- calculate_pmi_and_filter(corpus_transposed, "S4_deu_career")
 ```
 

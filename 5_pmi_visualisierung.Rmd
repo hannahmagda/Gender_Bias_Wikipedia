@@ -287,6 +287,12 @@ df_final %>%
 
 
 
+deu_career_female_cat[, c("Gender", "Subgroup")] <- NULL
+deu_career_male_cat[, c("Gender", "Subgroup")] <- NULL
+deu_life_female_cat[, c("Gender", "Subgroup")] <- NULL
+deu_life_male_cat[, c("Gender", "Subgroup")] <- NULL
+
+df_final
 ```
 
 
@@ -376,9 +382,12 @@ df_final <- df_final %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed")) %>%
   collapse_rows(columns = 1:2, valign = "middle")
 
+
+
+
 save_kable(df_final, file = here("visualisations", "pmi_Party_career.png"))
 
-
+df_final
 ```
 
 and second for the life subsections
@@ -463,13 +472,12 @@ df_final <-df_final %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed")) %>%
   collapse_rows(columns = 1:2, valign = "middle")
 
-df_final
-
 
 
 
 save_kable(df_final, file = here("visualisations", "pmi_Party_life.png"))
 
+df_final
 ```
 
 The same code applied to the old and new version of the wikipedia texts, first for the life subsections
@@ -527,8 +535,12 @@ df_final <- df_final %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed")) %>%
   collapse_rows(columns = 1:2, valign = "middle")
 
+
+
+
 save_kable(df_final, file = here("visualisations", "pmi_old_life.png"))
 
+df_final
 
 ```
 
@@ -587,9 +599,13 @@ df_final <- df_final %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed")) %>%
   collapse_rows(columns = 1:2, valign = "middle")
 
+
+
+
+
 save_kable(df_final, file = here("visualisations", "pmi_old_career.png"))
 
-
+df_final
 ```
 
 
@@ -655,10 +671,10 @@ df_final <- df_final %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed")) %>%
   collapse_rows(columns = 1:2, valign = "middle")
 
-df_final
+
 save_kable(df_final, file = here("visualisations", "pmi_age_life.png"))
 
-
+df_final
 ```
 
 
@@ -724,7 +740,11 @@ df_final <- df_final %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed")) %>%
   collapse_rows(columns = 1:2, valign = "middle")
 
+
+
 save_kable(df_final, file = here("visualisations", "pmi_age_career.png"))
+
+df_final
 
 ```
 
@@ -813,9 +833,9 @@ df_final <- df_wide %>%
   collapse_rows(columns = 1:2, valign = "middle")
 
 
-df_final
-
 kableExtra::save_kable(df_final, file = here("visualisations", "sensitivity_career.png"))
+
+df_final
 
 ```
 
@@ -903,9 +923,8 @@ df_final <- df_wide %>%
   collapse_rows(columns = 1:2, valign = "middle")
 
 
+kableExtra::save_kable(df_final, file = here("visualisations", "sensitivity_life.png"))
+
 df_final
 
-options(width = 10, height = 8, dpi = 600)
-
-kableExtra::save_kable(df_final, file = here("visualisations", "sensitivity_life.png"))
 ```
