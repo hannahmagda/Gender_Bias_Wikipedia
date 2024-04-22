@@ -11,7 +11,7 @@ The results of my analysis indicate that, after matching, there are no significa
 
 ## Code Requirements
 
-The raw and cleaned data is too big for github and can thus be found in this google drive foulder: https://drive.google.com/drive/u/0/folders/1gEd6ji1lLCFKnp0cOyAHSK_YQGQGXnXs?q=sharedwith:public%20parent:1gEd6ji1lLCFKnp0cOyAHSK_YQGQGXnXs
+The raw and cleaned data is too big for github and can thus be found in this google drive folder: https://drive.google.com/drive/u/0/folders/1gEd6ji1lLCFKnp0cOyAHSK_YQGQGXnXs
 
 
 ## Structure
