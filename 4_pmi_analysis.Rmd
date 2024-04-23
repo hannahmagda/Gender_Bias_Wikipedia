@@ -1,20 +1,21 @@
 ---
-title: "data_analysis"
+title: "PMI Analysis"
 author: "Hannah Schweren"
 date: "2024-03-15"
 output: html_document
 ---
-```{r setup}
-knitr::opts_knit$set(root.dir = '/Users/hannahschweren/Documents/Zukunft/Master/drittes semester/thesis/Code/thesis')
-```
 
+This script provides the code for my PMI analyis. First, a pipeline is developped to turn the text data into vocabulary and then a PMI analyis is applied to this vocabulary for each subgroup of data of interest (unmatched/matched/party/age/old subgroups). The code for the PMI analysis is based on code written by Eduardo Graells-Garrido and can be found in the following repository: https://github.com/clauwag/WikipediaGenderInequality/tree/master/notebooks
+ 
+ 
+### Necessary packages
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 library(legislatoR)
 library(WikipediR)
 library(rvest)
 library(dplyr)
-library(stringr) #für word count
+library(stringr)
 library(ggplot2)
 library(tm)
 library(MatchIt)
@@ -22,28 +23,33 @@ library(quanteda)
 library(purrr)
 library(dplyr)
 library(tidyverse)
+library(here)
 
 
 
 ```
 
 
-load the data
+### Load the cleaned data
 ```{r}
 deu <- read.csv("data/clean/deu.csv")
 matched_data <- read.csv(("data/clean/matched_data.csv"))
 ```
 
 
+### Necessary functions
 
 ```{r}
-prepare_corpus <- function(data_frame, text_column) {
-  # Ensure the sex column is complete
-  
+
+#first, the data is prepared to be in the necessary shpe for the PMI analyis by the following function
+
+prepare_vocabulary <- function(data_frame, text_column) {
+  #create a copy to not change the original data
   df_copy <- data_frame
+  # Remove rows with missing values in the 'sex' column
   df_copy <- df_copy[complete.cases(df_copy$sex), ]
   
-  # Convert the sex column to numeric (male = 0, female = 1)
+  # Convert the 'sex' column to numeric (male = 0, female = 1)
   df_copy$sex <- ifelse(df_copy$sex == "male", 0, 1)
   
   # Summarize the text data by sex
@@ -52,11 +58,15 @@ prepare_corpus <- function(data_frame, text_column) {
     summarise(text = paste(!!sym(text_column), collapse = " ")) %>%
     ungroup()
   
-  # Create the corpus
+  # Create the vocabulary
   corpus_created <- corpus(summary_df, docid_field = "sex")
   
   return(corpus_created)
 }
+
+#############################################################################################################################################################
+
+# define words that mess with the analyis, starting with gender senstitive occupation labels
 
 gender_neutral_replacements <- c(
   "Politikerin" = "Politiker",
@@ -164,13 +174,14 @@ gender_neutral_replacements <- c(
   "Gustav" =""
 )
 
-#namen extrahieren
+# extract names
 first_words <- vapply(strsplit(deu$plain_text, "\\s+"), function(x) gsub("[,;:.!?]+$", "", x[1]), character(1))
 second_words <- vapply(strsplit(deu$plain_text, "\\s+"), function(x) ifelse(length(x) > 1, gsub("[,;:.!?]+$", "", x[2]), ""), character(1))
-#name_words <- unlist(strsplit(deu$name, " "))
 
+#extract mobths
 months <- c("januar", "februar", "märz", "april", "mai", "juni", "juli", "august", "september", "oktober", "november", "dezember", "eins", "zwei", "drei", "vier", "fünf", "sechs", "sieben", "acht", "neun", "zehn", "1949–2002", "3-598-23782-0")
 
+#extract cities
 cities <- c("berlin", "heidelberg", "hamburg", "münchen", "köln", "frankfurt", 
             "stuttgart", "düsseldorf", "dortmund", "essen", "leipzig", 
             "bremen", "dresden", "hannover", "nürnberg", "duisburg", 
@@ -182,20 +193,24 @@ cities <- c("berlin", "heidelberg", "hamburg", "münchen", "köln", "frankfurt",
             "hagen", "hamm", "saarbrücken", "mülheim an der ruhr", "potsdam", 
             "ludwigshafen", "oldenburg", "leverkusen", "osnabrück", "bonn")
 
+#extract stopwords "Stoppwörter der Deutschen Rechtssprache (SW-DE-RS)" (Fobbe, 2020)
 custom.stopwords <- read.csv("data/raw/SW-DE-RS_v1-0-0_Datensatz.csv")
 custom.stopwords <- unlist(custom.stopwords)
 custom.stopwords <- unname(custom.stopwords)
 custom.stopwords <- as.character(custom.stopwords)
 custom.stopwords <- custom.stopwords[custom.stopwords!=""]
 
-##############namen problem
+#combine all words that I want to remove from the vocabulary
 words_to_remove <- unique(c(first_words, second_words, months, cities, stopwords("de")))
 
-#words_to_remove <- unique(c(name_words, stopwords("de")))
+#############################################################################################################################################################
 
+#function to further process the corpus 
 
 process_corpus <- function(corpus, gender_neutral_replacements, words_to_remove) {
-  # Tokenizing the corpus with specific removals and replacements
+  
+  # Tokenizing the corpus and removing/replacing data that messes with the analyis
+  # puntuation, capital letters, numbers etc. are removed
   tokens <- tokens(corpus, remove_punct = TRUE, remove_numbers = TRUE, remove_symbols = TRUE) %>%
     tokens_tolower() %>%
     tokens_replace(pattern = names(gender_neutral_replacements), replacement = gender_neutral_replacements, case_insensitive = TRUE) %>%
@@ -205,7 +220,7 @@ process_corpus <- function(corpus, gender_neutral_replacements, words_to_remove)
     tokens_remove(pattern = words_to_remove, padding = FALSE)
 
   
-  # Creating the DFM
+  # Creating a Document-Feature-Matrix (DFM) with the tokens
   dfmat <- dfm(tokens)
   
   # Printing the result to check
@@ -236,8 +251,11 @@ process_corpus <- function(corpus, gender_neutral_replacements, words_to_remove)
   return(corpus_transposed)
 }
 
+#############################################################################################################################################################
 
-#main analysis uses threshhold min_p as 0.0002 - senstivity is shown with value 0.001 as used by Wagner et al.
+# the following function conducts the PMI analyis
+
+#main analysis uses threshhold min_p as 0.0002, for sensitivity analyis adapt values accordingly
 calculate_pmi_and_filter <- function(corpus_transposed, corpus_name, min_p = 0.0002) {
   # Calculate total counts
   total_male_count <- sum(corpus_transposed$male)
@@ -256,29 +274,33 @@ calculate_pmi_and_filter <- function(corpus_transposed, corpus_name, min_p = 0.0
            PMI_male = log(p_male_w / (p_w * p_c_male)) / -log(p_male_w),
            PMI_female = log(p_female_w / (p_w * p_c_female)) / -log(p_female_w))
 
-  # Filter for words with PMI value greater than 0.02 to only get relevant results
+  # Filter for words with PMI value greater than 0.02 to only get relevant results and cap at 100 words to get top 100 PMI words
+  #for female words
   filtered_female <- pmi_df %>%
     filter(p_w > min_p & PMI_female > 0.02) %>%
     arrange(desc(PMI_female))%>%
     head(100)
-
+  #and for male words
   filtered_male <- pmi_df %>%
     filter(p_w > min_p & PMI_male > 0.02) %>%
     arrange(desc(PMI_male))%>%
     head(100)
 
 
-  # Save to CSV (commented out)
-  write.csv(filtered_female, sprintf("data/pmi_list/%s_pmi_female.csv", corpus_name), row.names = FALSE)
-  write.csv(filtered_male, sprintf("data/pmi_list/%s_pmi_male.csv", corpus_name), row.names = FALSE)
+  # Save to CSV
+  write.csv(filtered_female, here("data", "pmi_list", paste0(corpus_name, "_pmi_female.csv")), row.names = FALSE)
+  write.csv(filtered_male, here("data", "pmi_list", paste0(corpus_name, "_pmi_male.csv")), row.names = FALSE)
 
   # Return a list containing both dataframes
   return(list(top_female = filtered_female, top_male = filtered_male))
 }
 ```
 
-Analysis for different cohorts - create dataframe per cohort
+# create subgroups for further analyis
+
+In order to look into age and party groups, we need to define those groups. The following code serves this purpose
 ```{r}
+# cretae three age cohorts
 
 cohort_assignment <- function(year) {
   if(year < 1949) {
@@ -291,13 +313,13 @@ cohort_assignment <- function(year) {
 }
 
 
-# Anwenden der Funktion auf den birthyear, um die Kohortenzugehörigkeit als Vektor zu erhalten
+# apply the function to the coumn birthyear
 cohort_vector <- sapply(matched_data$birthyear, cohort_assignment)
 
-# Aufteilen des DataFrames in eine Liste von DataFrames basierend auf dem Kohortenvektor
+# split the data based on the defined cohorts
 list_of_dfs <- split(matched_data, cohort_vector)
 
-
+# create one dataframe per cohort to conduct the PMI analyis for each cohort
 cohort1 <- list_of_dfs$cohort1
 cohort2 <- list_of_dfs$cohort2
 cohort3 <- list_of_dfs$cohort3
@@ -305,28 +327,29 @@ cohort3 <- list_of_dfs$cohort3
 ```
 
 
-
-Analysis for different parties - create dataframe per party
 ```{r}
+
+# Split up different parties in respective dataframes
+
 parties <- c("FDP", "AfD", "BÜNDNIS 90/DIE GRÜNEN", "CDU", "CSU", "SPD", "DIE LINKE")
 
-# Liste, um die separaten DataFrames zu speichern
+# list to save the individual party dataframes
 party_dfs <- list()
 
-# Schleife über die Namen der Parteien
+# Loop over the party names
 for(party in parties) {
   if(party == "CDU" || party == "CSU") {
-    # Füge Daten für CDU und CSU zusammen, falls noch nicht geschehen
+    # Combine data for CDU and CSU
     if(!"CDU_CSU" %in% names(party_dfs)) {
       party_dfs[["CDU_CSU"]] <- matched_data[matched_data$party %in% c("CDU", "CSU"), ]
     }
   } else {
-    # Erstelle einen DataFrame für jede andere Partei
+    # Create a DataFrame for all other parties
     party_dfs[[party]] <- matched_data[matched_data$party == party, ]
   }
 }
 
-# Zugriff auf den kombinierten DataFrame von CDU und CSU
+# get separate dataframes for each political party
 cdu_csu_df <- party_dfs[["CDU_CSU"]]
 greens_df <- party_dfs[["BÜNDNIS 90/DIE GRÜNEN"]]
 left_df <- party_dfs[["DIE LINKE"]]
@@ -338,16 +361,15 @@ afd_df <- party_dfs[["AfD"]]
 
 
 
+### Apply pipeline to all relevant groups
 
-
-apply functions:
-
+In the following code, the functions to output the PMI lists are applied to all relevant groups
 ```{r}
 
 
 # #whole sample, life section########################################################################################
 # # Step 1: 
-# corpus <- prepare_corpus(deu, "extracted_text")
+# corpus <- prepare_vocabulary(deu, "extracted_text")
 # 
 # # Step 2: 
 # corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -359,7 +381,7 @@ apply functions:
 
 # #whole sample career/party section########################################################################################
 # # Step 1: 
-# corpus <- prepare_corpus(deu, "career_text")
+# corpus <- prepare_vocabulary(deu, "career_text")
 # 
 # # Step 2: 
 # corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -369,7 +391,7 @@ apply functions:
 # 
 # #matched data life section########################################################################################
 # # Step 1: 
-# corpus <- prepare_corpus(matched_data, "extracted_text")
+# corpus <- prepare_vocabulary(matched_data, "extracted_text")
 # 
 # # Step 2: 
 # corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -379,7 +401,7 @@ apply functions:
 # 
 # #matched data career section########################################################################################
 # # Step 1: 
-# corpus <- prepare_corpus(matched_data, "career_text")
+# corpus <- prepare_vocabulary(matched_data, "career_text")
 # 
 # # Step 2: 
 # corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -393,7 +415,7 @@ apply functions:
 
 # # #matched sample, old life section########################################################################################
 # # # Step 1:
-# corpus <- prepare_corpus(matched_data, "extracted_text_old")
+# corpus <- prepare_vocabulary(matched_data, "extracted_text_old")
 # 
 # # Step 2:
 # corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -403,7 +425,7 @@ apply functions:
 # 
 # # #matched sample, new life section########################################################################################
 # # Step 1:
-# corpus <- prepare_corpus(matched_data, "extracted_text_new")
+# corpus <- prepare_vocabulary(matched_data, "extracted_text_new")
 # 
 # # Step 2:
 # corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -414,7 +436,7 @@ apply functions:
 # 
 # # #matched sample, old career section########################################################################################
 # # # Step 1:
-# corpus <- prepare_corpus(matched_data, "career_text_old")
+# corpus <- prepare_vocabulary(matched_data, "career_text_old")
 # 
 # # Step 2:
 # corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -424,7 +446,7 @@ apply functions:
 # 
 # # #matched sample, new career section########################################################################################
 # # Step 1:
-# corpus <- prepare_corpus(matched_data, "career_text_new")
+# corpus <- prepare_vocabulary(matched_data, "career_text_new")
 # 
 # # Step 2:
 # corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -436,7 +458,7 @@ apply functions:
 # 
 # #cohort 1 career section########################################################################################
 # # Step 1: 
-# corpus <- prepare_corpus(first_cohort, "career_text")
+# corpus <- prepare_vocabulary(first_cohort, "career_text")
 # 
 # # Step 2: 
 # corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -447,7 +469,7 @@ apply functions:
 # 
 # #cohort 2 career section########################################################################################
 # # Step 1: 
-# corpus <- prepare_corpus(second_cohort, "career_text")
+# corpus <- prepare_vocabulary(second_cohort, "career_text")
 # 
 # # Step 2: 
 # corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -458,7 +480,7 @@ apply functions:
 # 
 # #cohort 3 career section########################################################################################
 # # Step 1: 
-# corpus <- prepare_corpus(third_cohort, "career_text")
+# corpus <- prepare_vocabulary(third_cohort, "career_text")
 # 
 # # Step 2: 
 # corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -469,7 +491,7 @@ apply functions:
 # 
 # #cohort 4 career section########################################################################################
 # # Step 1: 
-# corpus <- prepare_corpus(fourth_cohort, "career_text")
+# corpus <- prepare_vocabulary(fourth_cohort, "career_text")
 # 
 # # Step 2: 
 # corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -480,7 +502,7 @@ apply functions:
 # 
 # #cohort 5 career section########################################################################################
 # # Step 1: 
-# corpus <- prepare_corpus(fifth_cohort, "career_text")
+# corpus <- prepare_vocabulary(fifth_cohort, "career_text")
 # 
 # # Step 2: 
 # corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -490,7 +512,7 @@ apply functions:
 # 
 # #cohort 1 life section########################################################################################
 # # Step 1: 
-# corpus <- prepare_corpus(first_cohort, "extracted_text")
+# corpus <- prepare_vocabulary(first_cohort, "extracted_text")
 # 
 # # Step 2: 
 # corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -501,7 +523,7 @@ apply functions:
 # 
 # #cohort 2 life section########################################################################################
 # # Step 1: 
-# corpus <- prepare_corpus(second_cohort, "extracted_text")
+# corpus <- prepare_vocabulary(second_cohort, "extracted_text")
 # 
 # # Step 2: 
 # corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -512,7 +534,7 @@ apply functions:
 # 
 # #cohort 3 life section########################################################################################
 # # Step 1: 
-# corpus <- prepare_corpus(third_cohort, "extracted_text")
+# corpus <- prepare_vocabulary(third_cohort, "extracted_text")
 # 
 # # Step 2: 
 # corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -523,7 +545,7 @@ apply functions:
 # 
 # #cohort 4 life section########################################################################################
 # # Step 1: 
-# corpus <- prepare_corpus(fourth_cohort, "extracted_text")
+# corpus <- prepare_vocabulary(fourth_cohort, "extracted_text")
 # 
 # # Step 2: 
 # corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -534,7 +556,7 @@ apply functions:
 # 
 # #cohort 5 life section########################################################################################
 # # Step 1: 
-# corpus <- prepare_corpus(fifth_cohort, "extracted_text")
+# corpus <- prepare_vocabulary(fifth_cohort, "extracted_text")
 # 
 # # Step 2: 
 # corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -548,7 +570,7 @@ apply functions:
 #cohorts - 3 groups
 #cohort 3 life section########################################################################################
 # # Step 1:
-# corpus <- prepare_corpus(cohort3, "extracted_text")
+# corpus <- prepare_vocabulary(cohort3, "extracted_text")
 # 
 # # Step 2:
 # corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -559,7 +581,7 @@ apply functions:
 # 
 # #cohort 2 life section########################################################################################
 # # Step 1:
-# corpus <- prepare_corpus(cohort2, "extracted_text")
+# corpus <- prepare_vocabulary(cohort2, "extracted_text")
 # 
 # # Step 2:
 # corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -569,7 +591,7 @@ apply functions:
 # 
 # #cohort 1 life section########################################################################################
 # # Step 1:
-# corpus <- prepare_corpus(cohort1, "extracted_text")
+# corpus <- prepare_vocabulary(cohort1, "extracted_text")
 # 
 # # Step 2:
 # corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -580,7 +602,7 @@ apply functions:
 # 
 # #cohort 3 career section########################################################################################
 # # Step 1:
-# corpus <- prepare_corpus(cohort3, "career_text")
+# corpus <- prepare_vocabulary(cohort3, "career_text")
 # 
 # # Step 2:
 # corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -590,7 +612,7 @@ apply functions:
 # 
 # #cohort 2 career section########################################################################################
 # # Step 1:
-# corpus <- prepare_corpus(cohort2, "career_text")
+# corpus <- prepare_vocabulary(cohort2, "career_text")
 # 
 # # Step 2:
 # corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -600,7 +622,7 @@ apply functions:
 # 
 # #cohort 1 career section########################################################################################
 # # Step 1:
-# corpus <- prepare_corpus(cohort1, "career_text")
+# corpus <- prepare_vocabulary(cohort1, "career_text")
 # 
 # # Step 2:
 # corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -611,7 +633,7 @@ apply functions:
 # # 
 # #afd life section########################################################################################
 # # Step 1: 
-# corpus <- prepare_corpus(afd_df, "extracted_text")
+# corpus <- prepare_vocabulary(afd_df, "extracted_text")
 # 
 # # Step 2: 
 # corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -621,7 +643,7 @@ apply functions:
 # 
 # #cdu/csu life section########################################################################################
 # # Step 1: 
-# corpus <- prepare_corpus(cdu_csu_df, "extracted_text")
+# corpus <- prepare_vocabulary(cdu_csu_df, "extracted_text")
 # 
 # # Step 2: 
 # corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -631,7 +653,7 @@ apply functions:
 # 
 # #greens life section########################################################################################
 # # Step 1: 
-# corpus <- prepare_corpus(greens_df, "extracted_text")
+# corpus <- prepare_vocabulary(greens_df, "extracted_text")
 # 
 # # Step 2: 
 # corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -641,7 +663,7 @@ apply functions:
 # 
 # #left life section########################################################################################
 # # Step 1: 
-# corpus <- prepare_corpus(left_df, "extracted_text")
+# corpus <- prepare_vocabulary(left_df, "extracted_text")
 # 
 # # Step 2: 
 # corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -651,7 +673,7 @@ apply functions:
 # 
 # #fdp life section########################################################################################
 # # Step 1: 
-# corpus <- prepare_corpus(fdp_df, "extracted_text")
+# corpus <- prepare_vocabulary(fdp_df, "extracted_text")
 # 
 # # Step 2: 
 # corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -661,7 +683,7 @@ apply functions:
 # 
 # #spd life section########################################################################################
 # # Step 1: 
-# corpus <- prepare_corpus(spd_df, "extracted_text")
+# corpus <- prepare_vocabulary(spd_df, "extracted_text")
 # 
 # # Step 2: 
 # corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -671,7 +693,7 @@ apply functions:
 # 
 # #afd career section########################################################################################
 # # Step 1: 
-# corpus <- prepare_corpus(afd_df, "career_text")
+# corpus <- prepare_vocabulary(afd_df, "career_text")
 # 
 # # Step 2: 
 # corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -681,7 +703,7 @@ apply functions:
 # 
 # #cdu/csu career section########################################################################################
 # # Step 1: 
-# corpus <- prepare_corpus(cdu_csu_df, "career_text")
+# corpus <- prepare_vocabulary(cdu_csu_df, "career_text")
 # 
 # # Step 2: 
 # corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -691,7 +713,7 @@ apply functions:
 # 
 # #greens career section########################################################################################
 # # Step 1: 
-# corpus <- prepare_corpus(greens_df, "career_text")
+# corpus <- prepare_vocabulary(greens_df, "career_text")
 # 
 # # Step 2: 
 # corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -701,7 +723,7 @@ apply functions:
 # 
 # #left career section########################################################################################
 # # Step 1: 
-# corpus <- prepare_corpus(left_df, "career_text")
+# corpus <- prepare_vocabulary(left_df, "career_text")
 # 
 # # Step 2: 
 # corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -711,7 +733,7 @@ apply functions:
 # 
 # #fdp career section########################################################################################
 # # Step 1: 
-# corpus <- prepare_corpus(fdp_df, "career_text")
+# corpus <- prepare_vocabulary(fdp_df, "career_text")
 # 
 # # Step 2: 
 # corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -721,7 +743,7 @@ apply functions:
 # 
 # #spd career section########################################################################################
 # # Step 1: 
-# corpus <- prepare_corpus(spd_df, "career_text")
+# corpus <- prepare_vocabulary(spd_df, "career_text")
 # 
 # # Step 2: 
 # corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -734,14 +756,14 @@ apply functions:
 
 ```
 
-Sensitivity Analysis for different thresholds
+### Sensitivity Analysis for different thresholds
 ```{r}
 
-# ######## IMOPRTANT: Set min_p to the respective threshhold you want to test! #########################################
+# ######## IMOPRTANT: Set min_p to the respective threshhold to be tested #########################################
 # 
 # # #whole sample, life section threshold 0.001 ########################################################################################
 # # Step 1:
-# corpus <- prepare_corpus(deu, "extracted_text")
+# corpus <- prepare_vocabulary(deu, "extracted_text")
 # 
 # # Step 2:
 # corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -752,7 +774,7 @@ Sensitivity Analysis for different thresholds
 # 
 # # #whole sample career/party section########################################################################################
 # # # Step 1:
-# corpus <- prepare_corpus(deu, "career_text")
+# corpus <- prepare_vocabulary(deu, "career_text")
 # 
 # # Step 2:
 # corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -764,7 +786,7 @@ Sensitivity Analysis for different thresholds
 # 
 # # #whole sample, life section threshold 0.0007########################################################################################
 # # Step 1:
-# corpus <- prepare_corpus(deu, "extracted_text")
+# corpus <- prepare_vocabulary(deu, "extracted_text")
 # 
 # # Step 2:
 # corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -775,7 +797,7 @@ Sensitivity Analysis for different thresholds
 # 
 # # #whole sample career/party section########################################################################################
 # # # Step 1:
-# corpus <- prepare_corpus(deu, "career_text")
+# corpus <- prepare_vocabulary(deu, "career_text")
 # 
 # # Step 2:
 # corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -788,7 +810,7 @@ Sensitivity Analysis for different thresholds
 # # #whole sample career/party section threshold 0.0004 ########################################################################################
 # # # Step 1:
 # 
-# corpus <- prepare_corpus(deu, "extracted_text")
+# corpus <- prepare_vocabulary(deu, "extracted_text")
 # 
 # # Step 2:
 # corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -799,7 +821,7 @@ Sensitivity Analysis for different thresholds
 # 
 # # #whole sample career/party section Threshold 0.0003########################################################################################
 # # # Step 1:
-# corpus <- prepare_corpus(deu, "career_text")
+# corpus <- prepare_vocabulary(deu, "career_text")
 # 
 # # Step 2:
 # corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -809,7 +831,7 @@ Sensitivity Analysis for different thresholds
 # 
 # 
 # 
-# corpus <- prepare_corpus(deu, "extracted_text")
+# corpus <- prepare_vocabulary(deu, "extracted_text")
 # 
 # # Step 2:
 # 
@@ -819,7 +841,7 @@ Sensitivity Analysis for different thresholds
 # 
 # # #whole sample career/party section########################################################################################
 # # # Step 1:
-# corpus <- prepare_corpus(deu, "career_text")
+# corpus <- prepare_vocabulary(deu, "career_text")
 # 
 # # Step 2:
 # corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)

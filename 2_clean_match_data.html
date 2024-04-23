@@ -13,7 +13,7 @@
 
 <meta name="date" content="2024-03-15" />
 
-<title>data_cleaning</title>
+<title>Skript to clean and match the data</title>
 
 <script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
 // be compatible with the behavior of Pandoc < 2.8).
@@ -350,67 +350,46 @@ display: none;
 
 
 
-<h1 class="title toc-ignore">data_cleaning</h1>
+<h1 class="title toc-ignore">Skript to clean and match the data</h1>
 <h4 class="author">Hannah Schweren</h4>
 <h4 class="date">2024-03-15</h4>
 
 </div>
 
 
-<p>Skript to clean the data and prepare it for the further analysis</p>
-<p>necessary packages</p>
+<p>This script provides the code for cleaning the data and thereby
+preparing it for the further analysis. Also, it includes code for the
+matching procedure of the data. This script outputs the two datasets
+used for the analysis: “Deu”, containing the whole cleaned data for all
+German politicians and “matched_data”. the dataset containing the
+matched body of politicians.</p>
+<div id="necessary-packages" class="section level3">
+<h3>Necessary packages</h3>
 <pre class="r"><code>library(legislatoR)
 library(WikipediR)
 library(rvest)
-library(dplyr)</code></pre>
-<pre><code>## 
-## Attaching package: &#39;dplyr&#39;</code></pre>
-<pre><code>## The following objects are masked from &#39;package:stats&#39;:
-## 
-##     filter, lag</code></pre>
-<pre><code>## The following objects are masked from &#39;package:base&#39;:
-## 
-##     intersect, setdiff, setequal, union</code></pre>
-<pre class="r"><code>library(purrr)
-library(tm)</code></pre>
-<pre><code>## Loading required package: NLP</code></pre>
-<pre class="r"><code>library(MatchIt)
+library(dplyr)
+library(purrr)
+library(tm)
+library(MatchIt)
 library(pbapply)
 library(here)</code></pre>
-<pre><code>## here() starts at /Users/hannahschweren/Documents/Zukunft/Master/drittes semester/thesis/Code/thesis</code></pre>
-<p>load the raw data</p>
+</div>
+<div id="get-the-raw-data" class="section level3">
+<h3>Get the raw data</h3>
 <pre class="r"><code>deu_political &lt;- read.csv(here(&quot;data&quot;, &quot;raw&quot;, &quot;deu_political.csv&quot;))
 deu_traffic &lt;- read.csv(here(&quot;data&quot;, &quot;raw&quot;, &quot;deu_traffic.csv&quot;))
 deu_text &lt;- read.csv(here(&quot;data&quot;, &quot;raw&quot;, &quot;deu_text.csv&quot;))
 deu_office &lt;- read.csv(here(&quot;data&quot;, &quot;raw&quot;, &quot;deu_offices.csv&quot;))
 deu_history &lt;- read.csv(here(&quot;data&quot;, &quot;raw&quot;, &quot;deu_history.csv&quot;))</code></pre>
-<p>Necessary functions</p>
-<pre class="r"><code># function to extract &quot;life&quot; or &quot;party/career&quot; section
-extract_content &lt;- function(text, section = 1) {
-  tryCatch({
-    parts &lt;- str_split(text, &quot;\\[Bearbeiten \\| Quelltext bearbeiten\\]&quot;)[[1]]
-    
-    if (length(parts) &gt; section) {
-      content_between = parts[section]
-      paragraph_positions &lt;- str_locate_all(content_between, &quot;\n\n&quot;)[[1]][,1]
-      
-      if (length(paragraph_positions) &gt; 0) {
-        last_paragraph_pos &lt;- max(paragraph_positions, na.rm = TRUE)
-        return(substr(content_between, 1, last_paragraph_pos))
-      } else {
-        return(content_between)
-      }
-    } else {
-      return(NA)
-    }
-  }, error = function(e) { 
-    NA 
-  })
-}
-
-###################################################################################################
-
-#function to clean the aquired text data
+</div>
+<div id="necessary-functions" class="section level3">
+<h3>Necessary functions</h3>
+<p>The following code provides all the functions used in this script to
+clean the data, create new variables containing sub-sections of the
+wikipedia text, the number of links of each text and if a politician
+holds an important office.</p>
+<pre class="r"><code>#function to clean the aquired text data
 
 clean_data &lt;- function(df) {
   initial_rows &lt;- nrow(df)
@@ -447,31 +426,60 @@ clean_data &lt;- function(df) {
   return(df)
 }
 
+###################################################################################################
+
+# function to extract &quot;life&quot; or &quot;party/career&quot; section
+extract_content &lt;- function(text, section = 1) {
+  tryCatch({
+    parts &lt;- str_split(text, &quot;\\[Bearbeiten \\| Quelltext bearbeiten\\]&quot;)[[1]]
+    
+    if (length(parts) &gt; section) {
+      content_between = parts[section]
+      paragraph_positions &lt;- str_locate_all(content_between, &quot;\n\n&quot;)[[1]][,1]
+      
+      if (length(paragraph_positions) &gt; 0) {
+        last_paragraph_pos &lt;- max(paragraph_positions, na.rm = TRUE)
+        return(substr(content_between, 1, last_paragraph_pos))
+      } else {
+        return(content_between)
+      }
+    } else {
+      return(NA)
+    }
+  }, error = function(e) { 
+    NA 
+  })
+}
+
+
 #############################################################################################################
 
+#function to check, wether a politician held an important office. 
 check_office &lt;- function(wikidataid, offices_dataset) {
   office_row &lt;- offices_dataset[offices_dataset$wikidataid == wikidataid, ]
   
-  # coloumns to be checked
+  # columns indicating that a politicna held an important office
   specific_columns &lt;- c(&quot;bundesminister&quot;, &quot;federal_chancellor_of_germany&quot;, 
                         &quot;president_of_germany&quot;, &quot;president_of_the_bundestag&quot;)
   
-  # plus all coloumns beginning with federal minister
+  # plus all columns beginning with federal minister
   federal_minister_columns &lt;- grep(&quot;^federal_minister&quot;, names(offices_dataset), value = TRUE)
   
-  # combine those coloumns
+  # combine those columns
   relevant_columns &lt;- c(specific_columns, federal_minister_columns)
   
-  # check if coloumns exist
+  # check if columns exist
   relevant_columns &lt;- relevant_columns[relevant_columns %in% names(office_row)]
   
   # check for cases that match the condition
   any_true &lt;- any(office_row[relevant_columns] == TRUE, na.rm = TRUE)
   
+  # Return TRUE if any relevant column contains TRUE, otherwise return FALSE
   return(ifelse(length(any_true) == 0, FALSE, any_true))
 }
 
 ##################################################################################################
+
 #function to get the number of links per page
 
 get_links &lt;- function(wiki_name) {
@@ -496,7 +504,12 @@ get_links &lt;- function(wiki_name) {
   
   return(num_links)
 }</code></pre>
-<p>clean the raw text data</p>
+</div>
+<div id="apply-the-functions-to-the-dataframe" class="section level3">
+<h3>Apply the functions to the dataframe</h3>
+<p>Using the above functions, we can remove redirects and other
+observations containing errors in the scraped data and are left with
+only meaningful observations</p>
 <pre class="r"><code>#clean the data
 deu &lt;- clean_data(deu_text)</code></pre>
 <pre><code>## Removal reasons:
@@ -504,8 +517,8 @@ deu &lt;- clean_data(deu_text)</code></pre>
 ##   - Reference Page: 67 
 ##   - Not Found/no name_provided: 25 
 ## Cleaned data: Removed 108 rows.</code></pre>
-<p>add the extracted sections and other variables that are needed for
-the analysis as new coloumns</p>
+<p>Next, we add the variables for the extracted life and career sections
+for the old and current data</p>
 <pre class="r"><code>#extract &quot;life&quot; section
 deu &lt;- deu %&gt;%
   mutate(extracted_text = map_chr(plain_text, ~possibly(extract_content, otherwise = NA_character_)(.x, section = 2)))
@@ -516,6 +529,7 @@ deu &lt;- deu %&gt;%
   mutate(career_text = map_chr(plain_text, ~possibly(extract_content, otherwise = NA_character_)(.x, section = 3)))
 
 #################################################################################################################
+
 # same procedure for the old version data
 
 #extract old &quot;life&quot; section
@@ -527,12 +541,12 @@ deu &lt;- deu %&gt;%
 deu &lt;- deu %&gt;%
   mutate(career_text_old = map_chr(old_text, ~possibly(extract_content, otherwise = NA_character_)(.x, section = 3)))
 
-
+#in order to only compare old texts to new ones that already existed ten years ago, I add a column that only contains current texts, if old ones exist as well.
 deu$extracted_text_new &lt;- ifelse(is.na(deu$extracted_text_old), NA, deu$extracted_text)
 
 deu$career_text_new &lt;- ifelse(is.na(deu$career_text_old), NA, deu$career_text)
 
-
+#add a column stating the text length of the biography sections
 deu &lt;- deu %&gt;%
   mutate(text_length_life = nchar(extracted_text))
 
@@ -541,7 +555,9 @@ deu &lt;- deu %&gt;%
 
 deu &lt;- deu %&gt;%
   mutate(text_length = nchar(plain_text))</code></pre>
-<p>add more variables for further analysis</p>
+<p>Then, we add more variables for further analysis, namely the page
+traffic per politician, the aggregated number of edits per politician
+and the number of links contained in each politician’s text.</p>
 <pre class="r"><code>#only keep oldest session if there are several sessions for one person and sum up service time
 deu_political &lt;- deu_political %&gt;%
   group_by(pageid) %&gt;%
@@ -575,22 +591,31 @@ total_edits_per_politician &lt;- deu_history %&gt;%
 
 total_edits_per_politician$pageid &lt;- as.integer(total_edits_per_politician$pageid)
 deu &lt;- left_join(deu, total_edits_per_politician, by = &quot;pageid&quot;)</code></pre>
+<p>Next, columns for the total length of service are created in the deu
+dataframe by merging the information from the political dataframe of the
+legislatoR package. Same goes for the traffic data. Further, the
+birthyear of each politician is extracted and added as a variable and
+important offices are marked in a variable, applying the check office
+function from above.</p>
 <pre class="r"><code>deu_political$pageid &lt;- as.integer(deu_political$pageid)
 deu &lt;- left_join(deu, select(deu_political, pageid, session, party, total_service), by = &quot;pageid&quot;)
 total_traffic_per_politician$pageid &lt;- as.integer(total_traffic_per_politician$pageid)
 deu &lt;- left_join(deu, select(total_traffic_per_politician, pageid, total_traffic), by = &quot;pageid&quot;)
 
-deu$birthyear &lt;- substr(deu$birth, 1, 4)</code></pre>
-<p>prepare matched data</p>
-<pre class="r"><code>deu$birthyear &lt;- as.numeric(as.character(deu$birthyear))
+deu$birthyear &lt;- substr(deu$birth, 1, 4)
+deu$birthyear &lt;- as.numeric(as.character(deu$birthyear))
 
 
 
 #new variable to indicate if politician had an important office
-deu$important_office &lt;- sapply(deu$wikidataid, check_office, offices_dataset = deu_office)
-
-
-deu &lt;- deu[complete.cases(deu$sex), ]
+deu$important_office &lt;- sapply(deu$wikidataid, check_office, offices_dataset = deu_office)</code></pre>
+</div>
+<div id="matching-procedure" class="section level3">
+<h3>Matching procedure</h3>
+<p>In the next step, the data is matched on the follwoing variables:
+birthyear, total_service, total_traffic, party, important_office,
+session in order to make it more comparable for the further analysis</p>
+<pre class="r"><code>deu &lt;- deu[complete.cases(deu$sex), ]
 deu$sex &lt;- ifelse(deu$sex == &quot;male&quot;, 0, 1)
 
 match_obj &lt;- matchit(sex ~ birthyear + total_service + total_traffic + party + important_office + session,
@@ -603,9 +628,14 @@ matched_data &lt;- match.data(match_obj)
 
 deu$sex &lt;- ifelse(deu$sex == 0, &quot;male&quot;, &quot;female&quot;)
 matched_data$sex &lt;- ifelse(matched_data$sex == 0, &quot;male&quot;, &quot;female&quot;)</code></pre>
-<p>save cleanded and matched data</p>
-<pre class="r"><code>write.csv(deu, file = &quot;data/clean/deu.csv&quot;, row.names = FALSE)
-write.csv(matched_data, file = &quot;data/clean/matched_data.csv&quot;, row.names = FALSE)</code></pre>
+</div>
+<div id="save-the-clean-data" class="section level3">
+<h3>Save the clean data</h3>
+<p>Now, the data is ready to be used for the analysis and is saved for
+the next script</p>
+<pre class="r"><code># write.csv(deu, file = &quot;data/clean/deu.csv&quot;, row.names = FALSE)
+# write.csv(matched_data, file = &quot;data/clean/matched_data.csv&quot;, row.names = FALSE)</code></pre>
+</div>
 
 
 

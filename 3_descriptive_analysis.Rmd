@@ -1,13 +1,13 @@
 ---
-title: "descriptive_visualizations"
+title: "Descriptive Analysis"
 author: "Hannah Schweren"
 date: "2024-03-28"
 output: html_document
 ---
-This script turns descriptive insights and indicators in nicely interpretable tables
+This script provides code to analyse the descriptive indicators and output the results in boxplots and tables. The data contains some outliers due to a couple of famous politicians. Bevause of that, the mean values risk being distorted. Therefore, a logarithm transformation with base two is performed to make the mean a more robust indicator for comparison. I chose the log2 scale to improve visibility while also allowing for an intuitive interpretation of the results (an increase by one unit on the transformed scale corresponds to a doubling of the original value).
 
-
-```{r}
+### necessary packages
+```{r message=FALSE, warning=FALSE}
 library(legislatoR)
 library(WikipediR)
 library(rvest)
@@ -18,13 +18,9 @@ library(tm)
 library(MatchIt)
 library(quanteda)
 library(purrr)
-library(dplyr)
 library(tidyverse)
 library(rstatix)
-library(ggplot2)
 library(ggpubr)
-library(dplyr)
-library(rstatix)
 library(effsize)
 library(kableExtra)
 library(magick)
@@ -32,20 +28,24 @@ library(webshot2)
 library(here)
 library(scales)
 library(corrplot)
-
+library(tibble)
 
 
 
 ```
 
 
+### Get the clean data
 ```{r}
-eu_political <- read.csv(here("data", "raw", "deu_political.csv"))
-deu_traffic <- read.csv(here("data", "raw", "deu_traffic.csv"))
 deu <- read.csv(here("data", "clean", "deu.csv"))
 matched_data <- read.csv(here("data", "clean", "matched_data.csv"))
 
+```
 
+### Necessary functions
+```{r}
+
+#function adding stars according to significance of t-test in the boxplot figures
 add_stars <- function(p_value) {
   if (p_value < 0.001) {
     return("***")
@@ -57,83 +57,172 @@ add_stars <- function(p_value) {
     return("")
   }
 }
+
+########################################################################################################
+
+#function to calculate the descriptive parameters
+
+calculate_statistics_log <- function(df) {
+  # Initialize an empty dataframe for the results
+  results <- tibble()
+  
+  # Iterate over each variable of interest
+  for (variable in c("text_length_log2", "text_length_career_log2", "text_length_live_log2", "number_of_links_log2", "total_edits_log2")) {
+    # Extract data for male and female group
+    data_male <- df %>%
+      filter(sex == "male") %>%
+      pull(variable)
+    data_female <- df %>%
+      filter(sex == "female") %>%
+      pull(variable)
+
+    # Check if data exists for both groups
+    if (length(data_male) == 0 | length(data_female) == 0) {
+      next # Skip to next iteration if data is missing for either group
+    }
+
+    # Perform Welch's t-test
+    test <- t.test(data_male, data_female, na.action = na.exclude)
+
+    # Calculate Cohen's d effect size
+    d <- cohen.d(data_male, data_female, na.rm = TRUE)$estimate
+
+    # Calculate means on log-transformed data
+    mean_male_log <- mean(data_male, na.rm = TRUE)
+    mean_female_log <- mean(data_female, na.rm = TRUE)
+
+    # Back-transform means to original scale to make the scaling consistent to the boxplots
+    mean_male_original <- 2^mean_male_log
+    mean_female_original <- 2^mean_female_log
+
+    # Assign new names to the variables
+    if (variable == "text_length_log2") {
+      variable_name <- "Text length"
+    } else if (variable == "text_length_career_log2") {
+      variable_name <- "Text length, career section"
+    } else if (variable == "text_length_live_log2") {
+      variable_name <- "Text length, life section"
+    } else if (variable == "number_of_links_log2") {
+      variable_name <- "Number of links"
+    } else if (variable == "total_edits_log2") {
+      variable_name <- "Number of edits"
+    }
+
+    # Append results to the dataframe
+    results <- rbind(results, tibble(
+      Variable = variable_name,
+      "Female Mean" = mean_female_original,
+      "Male Mean" = mean_male_original,
+      P_Value = test$p.value,
+      "Effect size" = d
+    ))
+  }
+
+  return(results)
+}
+
+# Function to generate and save a formatted table containing the descriptive indicators
+generate_table <- function(data, file_name) {
+  # Function to format p-values with stars
+  combine_p_value_and_stars <- function(p_value) {
+    stars <- ifelse(p_value < .001, "***",
+                    ifelse(p_value < .01, "**",
+                           ifelse(p_value < .05, "*",
+                                  ifelse(p_value < .1, ".", "ns"))))
+
+    formatted_p_value <- format(round(p_value, 3), nsmall = 3)  # Format p-value with 3 digits
+
+    if(grepl("\\*", stars)) {
+      return(sprintf("<b>%s%s</b>", formatted_p_value, stars))
+    } else {
+      return(formatted_p_value)
+    }
+  }
+
+  # Format P-Values using the custom function
+  data$P_Value <- sapply(data$P_Value, combine_p_value_and_stars)
+
+  # Prepare the dataset for table creation, round digits
+  data <- data %>%
+    select(everything()) %>%
+    mutate(across(where(is.numeric), round, digits = 3))
+
+  # Create the table
+  descriptive_table <- kable(data, "html", escape = FALSE) %>%
+    kable_styling("striped", full_width = F) %>%
+    collapse_rows(columns = 1, valign = "top")
+
+  # Save the table as a PNG image
+  save_kable(descriptive_table, file = here("visualisations", paste0(file_name, ".png")))   
+
+  return(descriptive_table)
+}
+
 ```
 
-Descriptive analyis of the text length of the unmatched sample - the data istransformed using a log2 scale to improve visibility while also allowing for an intuitive interpretation of the results. Specifically, an increase by one unit on the transformed scale corresponds to a doubling of the original value.
+### create boxplots
 
-first for the unmatched data:
+The follwoing code creates boxplots for each descriptive feature, starting with the unmatched data
 
 1.1. Text length
 ```{r}
 
-#exclude cases where extracting did not work out properly
-filtered_data_deu <- deu
-
-#Ersetze Werte kleiner als 60 in text_length_live mit NA im neuen DataFrame
-filtered_data_deu$text_length_live[filtered_data_deu$text_length_live < 60] <- NA
-filtered_data_deu$text_length_career[filtered_data_deu$text_length_career < 60] <- NA
+#Put NAs for cases where the section extraction did not work out properly, text length is <60 and thus exclude them in this analyis
+descriptive_data_deu <- deu
+descriptive_data_deu$text_length_live[descriptive_data_deu$text_length_live < 60] <- NA
+descriptive_data_deu$text_length_career[descriptive_data_deu$text_length_career < 60] <- NA
 
 
-# Log2 transformation
+#conduct the logarythmic transformation with basis 2 for the t-test
+descriptive_data_deu$text_length_log2 <- log2(descriptive_data_deu$text_length)
 
-filtered_data_deu$text_length_log2 <- log2(filtered_data_deu$text_length)
+# calculate the p-value
+t_test_result <- t.test(text_length_log2 ~ sex, data = descriptive_data_deu)
 
-
-# calculate the p-value using a two-sample t-test
-t_test_result <- t.test(text_length_log2 ~ sex, data = filtered_data_deu)
-
-
-deu_text_length_2 <- ggplot(filtered_data_deu, aes(x = factor(sex, levels = c("female", "male"), labels = c("Women", "Men")), y = text_length, fill = factor(sex, levels = c("female", "male")))) +
+#create a boxplot to viualise the descriptive indicators
+deu_text_length <- ggplot(descriptive_data_deu, aes(x = factor(sex, levels = c("female", "male"), labels = c("Women", "Men")), y = text_length, fill = factor(sex, levels = c("female", "male")))) +
   geom_boxplot() +
     scale_fill_manual(values = c("female" = "#f4a582", "male" = "#92c5de")) + 
-  labs(title = paste("Two-sample t-test, P-Value = ", round(t_test_result$p.value, 3), add_stars(t_test_result$p.value), sep = ""),
+  labs(title = paste("Two-sample t-test, P-Value = ", round(t_test_result$p.value, 3), add_stars(t_test_result$p.value), sep = ""), #add p-value on top of the boxplot
        x = "Gender", 
        y = "Text length (characters)", caption = "") +
   stat_summary(fun = mean, geom = "point", aes(group = sex),
-               shape = 4, size = 3, color = "blue") + # Kreuz für den Mittelwert
+               shape = 4, size = 3, color = "blue") + # add a blue cross to mark the mean value in the boxplot
   theme_minimal() +
   theme(
-    panel.background = element_rect(fill = "white", colour = "white"), # Setzt den Hintergrund auf Weiß
+    panel.background = element_rect(fill = "white", colour = "white"), # make the background white
     plot.background = element_rect(fill = "white", colour = NA),
-    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"), # Titel zentrieren und Größe anpassen
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"), # center and fix size for the title
     plot.caption = element_text(hjust = 0.5, size = 16),
-    axis.title.x = element_text(size = 16, , face = "bold"), # Größe des x-Achsentitels anpassen
-    axis.title.y = element_text(size = 16, , face = "bold"), # Größe des y-Achsentitels anpassen
-    axis.text.x = element_text(size = 16), # Größe des x-Achsentextes anpassen
-    axis.text.y = element_text(size = 13)  # Größe des y-Achsentextes anpassen
+    axis.title.x = element_text(size = 16, , face = "bold"), # fix size for axis titles and text
+    axis.title.y = element_text(size = 16, , face = "bold"), 
+    axis.text.x = element_text(size = 16), 
+    axis.text.y = element_text(size = 13)  
   ) +
   guides(fill = FALSE)+ 
-  scale_y_continuous(trans = 'log2')
+  scale_y_continuous(trans = 'log2') # logarithmic transformation of the data but add the original scale in order to make it better interpretable
   
   
-deu_text_length_2
+deu_text_length
 
-ggsave(here("visualisations", "deu_boxplot1.pdf"), plot = deu_text_length_2, width = 5, height = 6, units = "in", dpi = 600)
+#save the plot
+ggsave(here("visualisations", "deu_boxplot1.pdf"), plot = deu_text_length, width = 5, height = 6, units = "in", dpi = 600)
 
 ```
+The same procedure follows for all indicators in the unmatched and matched data
 
 1.2. Text length life section
 ```{r warning=FALSE}
-# Log2 transformation
-
-#deu$text_length_life_log2 <- log2(deu$text_length_live)
 
 
-# calculate the p-value using a two-sample t-test
-#t_test_result <- t.test(text_length_life_log2 ~ sex, data = deu, na.action = na.exclude)
+descriptive_data_deu$text_length_life_log2 <- log2(descriptive_data_deu$text_length_live)
 
-
-
-filtered_data_deu$text_length_life_log2 <- log2(filtered_data_deu$text_length_live)
-
-
-# Führe den t-Test mit den transformierten Daten durch
-t_test_result <- t.test(text_length_life_log2 ~ sex, data = filtered_data_deu, na.action = na.exclude)
+t_test_result <- t.test(text_length_life_log2 ~ sex, data = descriptive_data_deu, na.action = na.exclude)
 
 
 
 
-deu_text_length_life_2 <- ggplot(filtered_data_deu, aes(x = factor(sex, levels = c("female", "male"), labels = c("Women", "Men")), y = text_length_live, fill = factor(sex, levels = c("female", "male")))) +
+deu_text_length_life_2 <- ggplot(descriptive_data_deu, aes(x = factor(sex, levels = c("female", "male"), labels = c("Women", "Men")), y = text_length_live, fill = factor(sex, levels = c("female", "male")))) +
   geom_boxplot() +
   scale_fill_manual(values = c("female" = "#f4a582", "male" = "#92c5de")) + 
   labs(title = paste("Two-sample t-test, P-Value = ", round(t_test_result$p.value, 3), add_stars(t_test_result$p.value), sep = ""),
@@ -165,40 +254,30 @@ ggsave(here("visualisations", "deu_boxplot2.pdf"), plot = deu_text_length_life_2
 
 1.3. Text length career section
 ```{r warning=FALSE}
-# Log2 transformation
 
-#deu$text_length_career_log2 <- log2(deu$text_length_career)
-
-
-# calculate the p-value using a two-sample t-test
-#t_test_result <- t.test(text_length_career_log2 ~ sex, data = deu, na.action = na.exclude)
-
-#exclude cases where extracting did not work out properly
-filtered_data_deu$text_length_career_log2 <- log2(filtered_data_deu$text_length_career)
-
-# Führe den t-Test mit den transformierten Daten durch
-t_test_result <- t.test(text_length_career_log2 ~ sex, data = filtered_data_deu, na.action = na.exclude)
-# 
+descriptive_data_deu$text_length_career_log2 <- log2(descriptive_data_deu$text_length_career)
+t_test_result <- t.test(text_length_career_log2 ~ sex, data = descriptive_data_deu, na.action = na.exclude)
 
 
-deu_text_length_career_2 <- ggplot(filtered_data_deu, aes(x = factor(sex, levels = c("female", "male"), labels = c("Women", "Men")), y = text_length_career, fill = factor(sex, levels = c("female", "male")))) +
+
+deu_text_length_career_2 <- ggplot(descriptive_data_deu, aes(x = factor(sex, levels = c("female", "male"), labels = c("Women", "Men")), y = text_length_career, fill = factor(sex, levels = c("female", "male")))) +
   geom_boxplot() +
     scale_fill_manual(values = c("female" = "#f4a582", "male" = "#92c5de")) + 
   labs(title = paste("Two-sample t-test, P-Value = ", round(t_test_result$p.value, 3), add_stars(t_test_result$p.value), sep = ""),
        x = "Gender", 
        y = "Text length, career section (characters)", caption = "") +
   stat_summary(fun = mean, geom = "point", aes(group = sex),
-               shape = 4, size = 3, color = "blue") + # Kreuz für den Mittelwert
+               shape = 4, size = 3, color = "blue") + 
   theme_minimal() +
   theme(
-    panel.background = element_rect(fill = "white", colour = "white"), # Setzt den Hintergrund auf Weiß
+    panel.background = element_rect(fill = "white", colour = "white"), 
     plot.background = element_rect(fill = "white", colour = NA),
-    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"), # Titel zentrieren und Größe anpassen
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"), 
     plot.caption = element_text(hjust = 0.5, size = 16),
-    axis.title.x = element_text(size = 16, , face = "bold"), # Größe des x-Achsentitels anpassen
-    axis.title.y = element_text(size = 16, , face = "bold"), # Größe des y-Achsentitels anpassen
-    axis.text.x = element_text(size = 16), # Größe des x-Achsentextes anpassen
-    axis.text.y = element_text(size = 13)  # Größe des y-Achsentextes anpassen
+    axis.title.x = element_text(size = 16, , face = "bold"), 
+    axis.title.y = element_text(size = 16, , face = "bold"),
+    axis.text.x = element_text(size = 16), 
+    axis.text.y = element_text(size = 13)  
   ) +
   guides(fill = FALSE)+ 
   scale_y_continuous(trans = 'log2')
@@ -213,8 +292,6 @@ ggsave(here("visualisations", "deu_boxplot3.pdf"), plot = deu_text_length_career
 ```{r}
 
 deu$number_of_links_log2 <- log2(deu$number_of_links)
-
-# p-Wert aus einem T-Test für die Anzahl der Links berechnen
 t_test_result <- t.test(number_of_links_log2 ~ sex, data = deu)
 
 
@@ -227,32 +304,30 @@ deu_links_2 <- ggplot(deu, aes(x = factor(sex, levels = c("female", "male"), lab
        x = "Gender", 
        y = "Number of links", caption = "") +
   stat_summary(fun = mean, geom = "point", aes(group = sex),
-               shape = 4, size = 3, color = "blue") + # Kreuz für den Mittelwert
+               shape = 4, size = 3, color = "blue") + 
   theme_minimal() +
   theme(
-    panel.background = element_rect(fill = "white", colour = "white"), # Setzt den Hintergrund auf Weiß
+    panel.background = element_rect(fill = "white", colour = "white"), 
     plot.background = element_rect(fill = "white", colour = NA),
-    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"), # Titel zentrieren und Größe anpassen
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"), 
     plot.caption = element_text(hjust = 0.5, size = 16),
-    axis.title.x = element_text(size = 16, , face = "bold"), # Größe des x-Achsentitels anpassen
-    axis.title.y = element_text(size = 16, , face = "bold"), # Größe des y-Achsentitels anpassen
-    axis.text.x = element_text(size = 16), # Größe des x-Achsentextes anpassen
-    axis.text.y = element_text(size = 13)  # Größe des y-Achsentextes anpassen
+    axis.title.x = element_text(size = 16, , face = "bold"), 
+    axis.title.y = element_text(size = 16, , face = "bold"), 
+    axis.text.x = element_text(size = 16), 
+    axis.text.y = element_text(size = 13)  
   ) +
   guides(fill = FALSE) + 
   scale_y_continuous(trans = 'log2')
 
 deu_links_2
 
-# Plot speichern
 ggsave(here("visualisations", "deu_boxplot4.pdf"), plot = deu_links_2, width = 5, height = 6, units = "in", dpi = 600)
 ```
 
 1.5. Number of page edits
 ```{r}
 
-# Log2 Transformation
-# 
+
  deu$total_edits_log2 <- log2(deu$total_edits)
 
 t_test_result <- t.test(total_edits_log2 ~ sex, data = deu)
@@ -266,17 +341,17 @@ deu_edits_2 <- ggplot(deu, aes(x = factor(sex, levels = c("female", "male"), lab
        x = "Gender", 
        y = "Number of edits", caption = "") +
   stat_summary(fun = mean, geom = "point", aes(group = sex),
-               shape = 4, size = 3, color = "blue") + # Kreuz für den Mittelwert
+               shape = 4, size = 3, color = "blue") + 
    theme_minimal() +
   theme(
-    panel.background = element_rect(fill = "white", colour = "white"), # Setzt den Hintergrund auf Weiß
+    panel.background = element_rect(fill = "white", colour = "white"), 
     plot.background = element_rect(fill = "white", colour = NA),
-    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"), # Titel zentrieren und Größe anpassen
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"), 
     plot.caption = element_text(hjust = 0.5, size = 16),
-    axis.title.x = element_text(size = 16, , face = "bold"), # Größe des x-Achsentitels anpassen
-    axis.title.y = element_text(size = 16, , face = "bold"), # Größe des y-Achsentitels anpassen
-    axis.text.x = element_text(size = 16), # Größe des x-Achsentextes anpassen
-    axis.text.y = element_text(size = 13)  # Größe des y-Achsentextes anpassen
+    axis.title.x = element_text(size = 16, , face = "bold"), 
+    axis.title.y = element_text(size = 16, , face = "bold"), 
+    axis.text.x = element_text(size = 16), 
+    axis.text.y = element_text(size = 13)  
   ) + 
   guides(fill = FALSE)+ 
   scale_y_continuous(trans = 'log2')
@@ -289,30 +364,18 @@ ggsave(here("visualisations", "deu_boxplot5.pdf"), plot = deu_edits_2, width = 5
 ```
 
 
-And also for the matched data:
+The following chunks create the plots for the matched data
 
 2.1. Text length
 ```{r}
 
-# Log2 transformation
-
-#exclude cases where extracting did not work out properly
-filtered_data_matched <- matched_data
-
-#Ersetze Werte kleiner als 60 in text_length_live mit NA im neuen DataFrame
-filtered_data_matched$text_length_live[filtered_data_matched$text_length_live < 60] <- NA
-filtered_data_matched$text_length_career[filtered_data_matched$text_length_career < 60] <- NA
+descriptive_data_matched <- matched_data
+descriptive_data_matched$text_length_live[descriptive_data_matched$text_length_live < 60] <- NA
+descriptive_data_matched$text_length_career[descriptive_data_matched$text_length_career < 60] <- NA
 
 
-filtered_data_matched$text_length_life_log2 <- log2(filtered_data_matched$text_length_live)
-
-
-# calculate the p-value using a two-sample t-test
-t_test_result <- t.test(text_length_log2 ~ sex, data = filtered_data_matched)
-
-# Create a boxplot, that shows the mean as a blue cross and also shows the p-value on top
-
-
+descriptive_data_matched$text_length_life_log2 <- log2(descriptive_data_matched$text_length_live)
+t_test_result <- t.test(text_length_log2 ~ sex, data = descriptive_data_matched)
 
 
 matched_data_text_length_2 <- ggplot(matched_data, aes(x = factor(sex, levels = c("female", "male"), labels = c("Women", "Men")), y = text_length, fill = factor(sex, levels = c("female", "male")))) +
@@ -322,26 +385,23 @@ matched_data_text_length_2 <- ggplot(matched_data, aes(x = factor(sex, levels = 
        x = "Gender", 
        y = "Text length (characters)", caption = "") +
   stat_summary(fun = mean, geom = "point", aes(group = sex),
-               shape = 4, size = 3, color = "blue") + # Kreuz für den Mittelwert
+               shape = 4, size = 3, color = "blue") + 
   theme_minimal() +
   theme(
-    panel.background = element_rect(fill = "white", colour = "white"), # Setzt den Hintergrund auf Weiß
+    panel.background = element_rect(fill = "white", colour = "white"), 
     plot.background = element_rect(fill = "white", colour = NA),
-    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"), # Titel zentrieren und Größe anpassen
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"), 
     plot.caption = element_text(hjust = 0.5, size = 16),
-    axis.title.x = element_text(size = 16, , face = "bold"), # Größe des x-Achsentitels anpassen
-    axis.title.y = element_text(size = 16, , face = "bold"), # Größe des y-Achsentitels anpassen
-    axis.text.x = element_text(size = 16), # Größe des x-Achsentextes anpassen
-    axis.text.y = element_text(size = 13)  # Größe des y-Achsentextes anpassen
+    axis.title.x = element_text(size = 16, , face = "bold"), 
+    axis.title.y = element_text(size = 16, , face = "bold"), 
+    axis.text.x = element_text(size = 16), 
+    axis.text.y = element_text(size = 13) 
   ) +
   guides(fill = FALSE)+ 
   scale_y_continuous(trans = 'log2')
 
 
-
 matched_data_text_length_2
-
-
 
 ggsave(here("visualisations", "matched_data_boxplot1.pdf"), plot = matched_data_text_length_2, width = 5, height = 6, units = "in", dpi = 600)
 
@@ -349,41 +409,31 @@ ggsave(here("visualisations", "matched_data_boxplot1.pdf"), plot = matched_data_
 
 2.2. Text length life section
 ```{r warning=FALSE}
-# Log2 transformation
-
-filtered_data_matched <- matched_data
-
-#Ersetze Werte kleiner als 60 in text_length_live mit NA im neuen DataFrame
-filtered_data_matched$text_length_live[filtered_data_matched$text_length_live < 60] <- NA
-filtered_data_matched$text_length_career[filtered_data_matched$text_length_career < 60] <- NA
 
 
-filtered_data_matched$text_length_life_log2 <- log2(filtered_data_matched$text_length_live)
-
-
-# Führe den t-Test mit den transformierten Daten durch
-t_test_result <- t.test(text_length_life_log2 ~ sex, data = filtered_data_matched, na.action = na.exclude)
+descriptive_data_matched$text_length_life_log2 <- log2(descriptive_data_matched$text_length_live)
+t_test_result <- t.test(text_length_life_log2 ~ sex, data = descriptive_data_matched, na.action = na.exclude)
 
 
 
-matched_text_length_life_2 <- ggplot(filtered_data_matched, aes(x = factor(sex, levels = c("female", "male"), labels = c("Women", "Men")), y = text_length_live, fill = factor(sex, levels = c("female", "male")))) +
+matched_text_length_life_2 <- ggplot(descriptive_data_matched, aes(x = factor(sex, levels = c("female", "male"), labels = c("Women", "Men")), y = text_length_live, fill = factor(sex, levels = c("female", "male")))) +
   geom_boxplot() +
     scale_fill_manual(values = c("female" = "#f4a582", "male" = "#92c5de")) + 
   labs(title = paste("Two-sample t-test, P-Value = ", round(t_test_result$p.value, 3), add_stars(t_test_result$p.value), sep = ""),
        x = "Gender", 
        y = "Text length, career section (characters)", caption = "") +
   stat_summary(fun = mean, geom = "point", aes(group = sex),
-               shape = 4, size = 3, color = "blue") + # Kreuz für den Mittelwert
+               shape = 4, size = 3, color = "blue") +
   theme_minimal() +
   theme(
-    panel.background = element_rect(fill = "white", colour = "white"), # Setzt den Hintergrund auf Weiß
+    panel.background = element_rect(fill = "white", colour = "white"), 
     plot.background = element_rect(fill = "white", colour = NA),
-    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"), # Titel zentrieren und Größe anpassen
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"), 
     plot.caption = element_text(hjust = 0.5, size = 16),
-    axis.title.x = element_text(size = 16, , face = "bold"), # Größe des x-Achsentitels anpassen
-    axis.title.y = element_text(size = 16, , face = "bold"), # Größe des y-Achsentitels anpassen
-    axis.text.x = element_text(size = 16), # Größe des x-Achsentextes anpassen
-    axis.text.y = element_text(size = 13)  # Größe des y-Achsentextes anpassen
+    axis.title.x = element_text(size = 16, , face = "bold"), 
+    axis.title.y = element_text(size = 16, , face = "bold"), 
+    axis.text.x = element_text(size = 16), 
+    axis.text.y = element_text(size = 13)  
   ) +
   guides(fill = FALSE)+ 
   scale_y_continuous(trans = 'log2')
@@ -397,34 +447,29 @@ ggsave(here("visualisations", "matched_data_boxplot2.pdf"), plot = matched_text_
 
 2.3. Text length career section
 ```{r warning=FALSE}
-# Log2 transformation
 
-filtered_data_matched$text_length_career_log2 <- log2(filtered_data_matched$text_length_career)
-
-# Führe den t-Test mit den transformierten Daten durch
-t_test_result <- t.test(text_length_career_log2 ~ sex, data = filtered_data_matched, na.action = na.exclude)
-# 
+descriptive_data_matched$text_length_career_log2 <- log2(descriptive_data_matched$text_length_career)
+t_test_result <- t.test(text_length_career_log2 ~ sex, data = descriptive_data_matched, na.action = na.exclude)
 
 
-
-matched_text_length_career_2 <- ggplot(filtered_data_matched, aes(x = factor(sex, levels = c("female", "male"), labels = c("Women", "Men")), y = text_length_career, fill = factor(sex, levels = c("female", "male")))) +
+matched_text_length_career_2 <- ggplot(descriptive_data_matched, aes(x = factor(sex, levels = c("female", "male"), labels = c("Women", "Men")), y = text_length_career, fill = factor(sex, levels = c("female", "male")))) +
   geom_boxplot() +
     scale_fill_manual(values = c("female" = "#f4a582", "male" = "#92c5de")) + 
   labs(title = paste("Two-sample t-test, P-Value = ", round(t_test_result$p.value, 3), add_stars(t_test_result$p.value), sep = ""),
        x = "Gender", 
        y = "Text length career section (characters)", caption = "") +
   stat_summary(fun = mean, geom = "point", aes(group = sex),
-               shape = 4, size = 3, color = "blue") + # Kreuz für den Mittelwert
+               shape = 4, size = 3, color = "blue") + 
   theme_minimal() +
   theme(
-    panel.background = element_rect(fill = "white", colour = "white"), # Setzt den Hintergrund auf Weiß
+    panel.background = element_rect(fill = "white", colour = "white"), 
     plot.background = element_rect(fill = "white", colour = NA),
-    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"), # Titel zentrieren und Größe anpassen
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"), 
     plot.caption = element_text(hjust = 0.5, size = 16),
-    axis.title.x = element_text(size = 16, , face = "bold"), # Größe des x-Achsentitels anpassen
-    axis.title.y = element_text(size = 16, , face = "bold"), # Größe des y-Achsentitels anpassen
-    axis.text.x = element_text(size = 16), # Größe des x-Achsentextes anpassen
-    axis.text.y = element_text(size = 13)  # Größe des y-Achsentextes anpassen
+    axis.title.x = element_text(size = 16, , face = "bold"), 
+    axis.title.y = element_text(size = 16, , face = "bold"), 
+    axis.text.x = element_text(size = 16), 
+    axis.text.y = element_text(size = 13) 
   ) +
   guides(fill = FALSE)+ 
   scale_y_continuous(trans = 'log2')
@@ -440,7 +485,6 @@ ggsave(here("visualisations", "matched_data_boxplot3.pdf"), plot = matched_text_
 
 matched_data$number_of_links_log2 <- log2(matched_data$number_of_links)
 
-# p-Wert aus einem T-Test für die Anzahl der Links berechnen
 t_test_result <- t.test(number_of_links_log2 ~ sex, data = matched_data)
 
 matched_data_links_2 <- ggplot(matched_data, aes(x = factor(sex, levels = c("female", "male"), labels = c("Women", "Men")), y = number_of_links, fill = factor(sex, levels = c("female", "male")))) +
@@ -453,14 +497,14 @@ matched_data_links_2 <- ggplot(matched_data, aes(x = factor(sex, levels = c("fem
                shape = 4, size = 3, color = "blue") + # Kreuz für den Mittelwert
   theme_minimal() +
   theme(
-    panel.background = element_rect(fill = "white", colour = "white"), # Setzt den Hintergrund auf Weiß
+    panel.background = element_rect(fill = "white", colour = "white"), 
     plot.background = element_rect(fill = "white", colour = NA),
-    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"), # Titel zentrieren und Größe anpassen
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"), 
     plot.caption = element_text(hjust = 0.5, size = 16),
-    axis.title.x = element_text(size = 16, , face = "bold"), # Größe des x-Achsentitels anpassen
-    axis.title.y = element_text(size = 16, , face = "bold"), # Größe des y-Achsentitels anpassen
-    axis.text.x = element_text(size = 16), # Größe des x-Achsentextes anpassen
-    axis.text.y = element_text(size = 13)  # Größe des y-Achsentextes anpassen
+    axis.title.x = element_text(size = 16, , face = "bold"), 
+    axis.title.y = element_text(size = 16, , face = "bold"), 
+    axis.text.x = element_text(size = 16), 
+    axis.text.y = element_text(size = 13)  
   ) +
   guides(fill = FALSE)+ 
   scale_y_continuous(trans = 'log2')
@@ -468,20 +512,14 @@ matched_data_links_2 <- ggplot(matched_data, aes(x = factor(sex, levels = c("fem
 
 matched_data_links_2
 
-# Plot speichern
 ggsave(here("visualisations", "matched_data_boxplot4.pdf"), plot = matched_data_links_2, width = 5, height = 6, units = "in", dpi = 600)
 ```
 
 2.5. Number of page edits
 ```{r}
 
-# Log2 Transformation
-# 
  matched_data$total_edits_log2 <- log2(matched_data$total_edits)
-
 t_test_result <- t.test(total_edits_log2 ~ sex, data = matched_data)
-
-
  
  
 matched_edits_2 <- ggplot(matched_data, aes(x = factor(sex, levels = c("female", "male"), labels = c("Women", "Men")), y = total_edits, fill = factor(sex, levels = c("female", "male")))) +
@@ -491,17 +529,17 @@ matched_edits_2 <- ggplot(matched_data, aes(x = factor(sex, levels = c("female",
        x = "Gender", 
        y = "Number of edits", caption = "") +
   stat_summary(fun = mean, geom = "point", aes(group = sex),
-               shape = 4, size = 3, color = "blue") + # Kreuz für den Mittelwert
+               shape = 4, size = 3, color = "blue") + 
    theme_minimal() +
   theme(
-    panel.background = element_rect(fill = "white", colour = "white"), # Setzt den Hintergrund auf Weiß
+    panel.background = element_rect(fill = "white", colour = "white"),
     plot.background = element_rect(fill = "white", colour = NA),
-    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"), # Titel zentrieren und Größe anpassen
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"), 
     plot.caption = element_text(hjust = 0.5, size = 16),
-    axis.title.x = element_text(size = 16, , face = "bold"), # Größe des x-Achsentitels anpassen
-    axis.title.y = element_text(size = 16, , face = "bold"), # Größe des y-Achsentitels anpassen
-    axis.text.x = element_text(size = 16), # Größe des x-Achsentextes anpassen
-    axis.text.y = element_text(size = 13)  # Größe des y-Achsentextes anpassen
+    axis.title.x = element_text(size = 16, , face = "bold"), 
+    axis.title.y = element_text(size = 16, , face = "bold"), 
+    axis.text.x = element_text(size = 16), 
+    axis.text.y = element_text(size = 13)  
   ) + 
   guides(fill = FALSE)+ 
   scale_y_continuous(trans = 'log2')
@@ -513,180 +551,76 @@ ggsave(here("visualisations", "matched_boxplot5.pdf"), plot =  matched_edits_2, 
 
 ```
 
+### create tables for descriptive indicators
+Now, we want to create tables, showing the variable of interest, the female and male means, the p-value and the effect size (Cohens's). First, we need to prepare the data for the next steps.
+```{r}
+#calculate statstics with log scales
 
-## Correlations
+descriptive_data_deu$text_length_career_log2 <- log2(descriptive_data_deu$text_length_career)
+descriptive_data_deu$text_length_live_log2 <- log2(descriptive_data_deu$text_length_live)
+descriptive_data_deu$text_length_log2 <- log2(descriptive_data_deu$text_length)
+descriptive_data_deu$number_of_links_log2 <- log2(descriptive_data_deu$number_of_links)
+descriptive_data_deu$total_edits_log2 <- log2(descriptive_data_deu$total_edits)
 
-```{r, height = 5}
-# select variables of interest as numeric variables
-cor_data <- deu %>% select(total_edits, text_length, number_of_links,
-                       total_service, total_traffic)
+descriptive_data_matched$text_length_career_log2 <- log2(descriptive_data_matched$text_length_career)
+descriptive_data_matched$text_length_live_log2 <- log2(descriptive_data_matched$text_length_live)
+descriptive_data_matched$text_length_log2 <- log2(descriptive_data_matched$text_length)
+descriptive_data_matched$number_of_links_log2 <- log2(descriptive_data_matched$number_of_links)
+descriptive_data_matched$total_edits_log2 <- log2(descriptive_data_matched$total_edits)
+
 
 ```
 
 
+apply functions
+```{r warning=FALSE}
+
+#unmatched data
+descriptives_deu <- calculate_statistics_log(descriptive_data_deu)
+generate_table(descriptives_deu, "deu_descriptives")
 
 
+#matched data
+descriptives_matched <- calculate_statistics_log(descriptive_data_matched)
+generate_table(descriptives_matched, "matched_descriptives")
+
+
+
+```
+
+
+### Correlations
+
+this code creates a correlation matrix for my data
 
 ```{r, height = 5}
-# calculate correlation matrix
+
+# Select the relevant columns for correlation analysis from the 'deu' dataset
+cor_data <- deu %>% select(total_edits, text_length, number_of_links,
+                       total_service, total_traffic)
+
+
+# Calculate the Pearson correlation matrix
 COR <- cor(cor_data, method = "pearson")
 
-COR
-
+# Custom labels for the columns and rows of the correlation matrix
 custom_labels <- c("Total Edits", "Text Lenght", "Number of Links", "Total Servise", "Total Page Traffic")
 
+# Assign custom labels to the column names and row names of the correlation matrix
 colnames(COR) <- custom_labels
 rownames(COR) <- custom_labels
 
 
-# plot
+# Plot the correlation matrix
 plot_cor <- corrplot(COR, method = "number", type = 'lower', bg = "grey", tl.col = "black", cl.pos = 'n', addgrid.col= "white")
 
+# Define the file path for saving the plot as a PDF
 pdf_file <- here("visualisations", "correlation.pdf")
 
 # Save the plot as a PDF file
 pdf(file = pdf_file)
 corrplot(COR, method = "number", type = 'lower', bg = "grey", tl.col = "black", cl.pos = 'n', addgrid.col= "white")
 dev.off()
-```
-
-
-table
-```{r}
-#calculate statstics with log scales
-
-filtered_data_deu$text_length_career_log2 <- log2(filtered_data_deu$text_length_career)
-filtered_data_deu$text_length_live_log2 <- log2(filtered_data_deu$text_length_live)
-filtered_data_deu$text_length_log2 <- log2(filtered_data_deu$text_length)
-filtered_data_deu$number_of_links_log2 <- log2(filtered_data_deu$number_of_links)
-filtered_data_deu$total_edits_log2 <- log2(filtered_data_deu$total_edits)
-
-filtered_data_matched$text_length_career_log2 <- log2(filtered_data_matched$text_length_career)
-filtered_data_matched$text_length_live_log2 <- log2(filtered_data_matched$text_length_live)
-filtered_data_matched$text_length_log2 <- log2(filtered_data_matched$text_length)
-filtered_data_matched$number_of_links_log2 <- log2(filtered_data_matched$number_of_links)
-filtered_data_matched$total_edits_log2 <- log2(filtered_data_matched$total_edits)
-
-
-```
-
-
-
-functions
-
-```{r}
-
-
-
-library(tibble)
-calculate_statistics_log <- function(df) {
-  # Initialisiere einen leeren DataFrame für die Ergebnisse
-  ergebnisse <- tibble()
-
-  for (variable in c("text_length_log2", "text_length_career_log2", "text_length_live_log2", "number_of_links_log2", "total_edits_log2")) {
-    # Extrahiere die Daten für jede Gruppe
-    data_male <- df %>%
-      filter(sex == "male") %>%
-      pull(variable)
-
-    data_female <- df %>%
-      filter(sex == "female") %>%
-      pull(variable)
-
-    # Überprüfe, ob die Variable im DataFrame existiert
-    if (length(data_male) == 0 | length(data_female) == 0) {
-      next
-    }
-
-    # Führe Welch-Test durch
-    test <- t.test(data_male, data_female, na.action = na.exclude)
-
-    # Berechne Cohen's d
-    d <- cohen.d(data_male, data_female, na.rm = TRUE)$estimate
-
-    # Füge Ergebnisse hinzu, Variablennamen ändern
-    if (variable == "text_length_log2") {
-      variable_name <- "Text length"
-    } else if (variable == "text_length_career_log2") {
-      variable_name <- "Text length, career section"
-    } else if (variable == "text_length_live_log2") {
-      variable_name <- "Text length, life section"
-    } else if (variable == "number_of_links_log2") {
-      variable_name <- "Number of links"
-    } else if (variable == "total_edits_log2") {
-      variable_name <- "Number of edits"
-    }
-
-
-    ergebnisse <- rbind(ergebnisse, tibble(
-      Variable = variable_name,
-      "Female Mean" = mean(data_female, na.rm = TRUE),
-      "Male Mean" = mean(data_male, na.rm = TRUE),
-      P_Value = test$p.value,
-      "Effect size" = d
-    ))
-  }
-
-  return(ergebnisse)
-}
-
-
-
-generate_and_save_table <- function(data, file_name) {
-  # Funktion zur Formatierung der P-Werte innerhalb der übergeordneten Funktion, um den Scope zu begrenzen
-  combine_p_value_and_stars <- function(p_value) {
-    stars <- ifelse(p_value < .001, "***",
-                    ifelse(p_value < .01, "**",
-                           ifelse(p_value < .05, "*",
-                                  ifelse(p_value < .1, ".", "ns"))))
-
-    formatted_p_value <- format(round(p_value, 3), nsmall = 3)  # Format p-value with 3 digits
-
-    if(grepl("\\*", stars)) {
-      return(sprintf("<b>%s%s</b>", formatted_p_value, stars))
-    } else {
-      return(formatted_p_value)
-    }
-  }
-
-  # P-Werte formatieren
-  data$P_Value <- sapply(data$P_Value, combine_p_value_and_stars)
-
-  # Datensatz vorbereiten
-  data <- data %>%
-    select(everything()) %>%
-    mutate(across(where(is.numeric), round, digits = 3))
-
-  # Tabelle erstellen
-  descriptive_table <- kable(data, "html", escape = FALSE) %>%
-    kable_styling("striped", full_width = F) %>%
-    collapse_rows(columns = 1, valign = "top")#%>%
-    save_kable(descriptive_table, file = here("visualisations", paste0(file_name, ".png")))
-
-  return(descriptive_table)
-}
-
-
-```
-
-apply functions
-```{r}
-
-
-
-
-#unmatched data
-descriptives_deu <- calculate_statistics_log(filtered_data_deu)
-#descriptives_deu$subgroup <- "whole sample"
-generate_and_save_table(descriptives_deu, "deu_descriptives")
-
-
-#matched data
-descriptives_matched <- calculate_statistics_log(filtered_data_matched)
-#descriptives_matched$subgroup <- "matched sample"
-generate_and_save_table(descriptives_matched, "matched_descriptives")
-
-
 
 ```
 

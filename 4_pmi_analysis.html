@@ -13,7 +13,7 @@
 
 <meta name="date" content="2024-03-15" />
 
-<title>data_analysis</title>
+<title>PMI Analysis</title>
 
 <script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
 // be compatible with the behavior of Pandoc < 2.8).
@@ -350,73 +350,51 @@ display: none;
 
 
 
-<h1 class="title toc-ignore">data_analysis</h1>
+<h1 class="title toc-ignore">PMI Analysis</h1>
 <h4 class="author">Hannah Schweren</h4>
 <h4 class="date">2024-03-15</h4>
 
 </div>
 
 
-<pre class="r"><code>knitr::opts_knit$set(root.dir = &#39;/Users/hannahschweren/Documents/Zukunft/Master/drittes semester/thesis/Code/thesis&#39;)</code></pre>
+<p>This script provides the code for my PMI analyis. First, a pipeline
+is developped to turn the text data into vocabulary and then a PMI
+analyis is applied to this vocabulary for each subgroup of data of
+interest (unmatched/matched/party/age/old subgroups). The code for the
+PMI analysis is based on code written by Eduardo Graells-Garrido and can
+be found in the following repository: <a href="https://github.com/clauwag/WikipediaGenderInequality/tree/master/notebooks" class="uri">https://github.com/clauwag/WikipediaGenderInequality/tree/master/notebooks</a></p>
+<div id="necessary-packages" class="section level3">
+<h3>Necessary packages</h3>
 <pre class="r"><code>library(legislatoR)
 library(WikipediR)
 library(rvest)
-library(dplyr)</code></pre>
-<pre><code>## 
-## Attaching package: &#39;dplyr&#39;</code></pre>
-<pre><code>## The following objects are masked from &#39;package:stats&#39;:
-## 
-##     filter, lag</code></pre>
-<pre><code>## The following objects are masked from &#39;package:base&#39;:
-## 
-##     intersect, setdiff, setequal, union</code></pre>
-<pre class="r"><code>library(stringr) #für word count
-library(ggplot2)
-library(tm)</code></pre>
-<pre><code>## Loading required package: NLP</code></pre>
-<pre><code>## 
-## Attaching package: &#39;NLP&#39;</code></pre>
-<pre><code>## The following object is masked from &#39;package:ggplot2&#39;:
-## 
-##     annotate</code></pre>
-<pre class="r"><code>library(MatchIt)
-library(quanteda)</code></pre>
-<pre><code>## Package version: 3.3.1
-## Unicode version: 14.0
-## ICU version: 71.1</code></pre>
-<pre><code>## Parallel computing: 8 of 8 threads used.</code></pre>
-<pre><code>## See https://quanteda.io for tutorials and examples.</code></pre>
-<pre><code>## 
-## Attaching package: &#39;quanteda&#39;</code></pre>
-<pre><code>## The following object is masked from &#39;package:tm&#39;:
-## 
-##     stopwords</code></pre>
-<pre><code>## The following objects are masked from &#39;package:NLP&#39;:
-## 
-##     meta, meta&lt;-</code></pre>
-<pre class="r"><code>library(purrr)
 library(dplyr)
-library(tidyverse)</code></pre>
-<pre><code>## ── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
-## ✔ forcats   1.0.0     ✔ tibble    3.2.1
-## ✔ lubridate 1.9.3     ✔ tidyr     1.3.0
-## ✔ readr     2.1.4</code></pre>
-<pre><code>## ── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
-## ✖ NLP::annotate()         masks ggplot2::annotate()
-## ✖ dplyr::filter()         masks stats::filter()
-## ✖ readr::guess_encoding() masks rvest::guess_encoding()
-## ✖ dplyr::lag()            masks stats::lag()
-## ℹ Use the conflicted package (&lt;http://conflicted.r-lib.org/&gt;) to force all conflicts to become errors</code></pre>
-<p>load the data</p>
+library(stringr)
+library(ggplot2)
+library(tm)
+library(MatchIt)
+library(quanteda)
+library(purrr)
+library(dplyr)
+library(tidyverse)
+library(here)</code></pre>
+</div>
+<div id="load-the-cleaned-data" class="section level3">
+<h3>Load the cleaned data</h3>
 <pre class="r"><code>deu &lt;- read.csv(&quot;data/clean/deu.csv&quot;)
 matched_data &lt;- read.csv((&quot;data/clean/matched_data.csv&quot;))</code></pre>
-<pre class="r"><code>prepare_corpus &lt;- function(data_frame, text_column) {
-  # Ensure the sex column is complete
-  
+</div>
+<div id="necessary-functions" class="section level3">
+<h3>Necessary functions</h3>
+<pre class="r"><code>#first, the data is prepared to be in the necessary shpe for the PMI analyis by the following function
+
+prepare_vocabulary &lt;- function(data_frame, text_column) {
+  #create a copy to not change the original data
   df_copy &lt;- data_frame
+  # Remove rows with missing values in the &#39;sex&#39; column
   df_copy &lt;- df_copy[complete.cases(df_copy$sex), ]
   
-  # Convert the sex column to numeric (male = 0, female = 1)
+  # Convert the &#39;sex&#39; column to numeric (male = 0, female = 1)
   df_copy$sex &lt;- ifelse(df_copy$sex == &quot;male&quot;, 0, 1)
   
   # Summarize the text data by sex
@@ -425,11 +403,15 @@ matched_data &lt;- read.csv((&quot;data/clean/matched_data.csv&quot;))</code></p
     summarise(text = paste(!!sym(text_column), collapse = &quot; &quot;)) %&gt;%
     ungroup()
   
-  # Create the corpus
+  # Create the vocabulary
   corpus_created &lt;- corpus(summary_df, docid_field = &quot;sex&quot;)
   
   return(corpus_created)
 }
+
+#############################################################################################################################################################
+
+# define words that mess with the analyis, starting with gender senstitive occupation labels
 
 gender_neutral_replacements &lt;- c(
   &quot;Politikerin&quot; = &quot;Politiker&quot;,
@@ -537,13 +519,14 @@ gender_neutral_replacements &lt;- c(
   &quot;Gustav&quot; =&quot;&quot;
 )
 
-#namen extrahieren
+# extract names
 first_words &lt;- vapply(strsplit(deu$plain_text, &quot;\\s+&quot;), function(x) gsub(&quot;[,;:.!?]+$&quot;, &quot;&quot;, x[1]), character(1))
 second_words &lt;- vapply(strsplit(deu$plain_text, &quot;\\s+&quot;), function(x) ifelse(length(x) &gt; 1, gsub(&quot;[,;:.!?]+$&quot;, &quot;&quot;, x[2]), &quot;&quot;), character(1))
-#name_words &lt;- unlist(strsplit(deu$name, &quot; &quot;))
 
+#extract mobths
 months &lt;- c(&quot;januar&quot;, &quot;februar&quot;, &quot;märz&quot;, &quot;april&quot;, &quot;mai&quot;, &quot;juni&quot;, &quot;juli&quot;, &quot;august&quot;, &quot;september&quot;, &quot;oktober&quot;, &quot;november&quot;, &quot;dezember&quot;, &quot;eins&quot;, &quot;zwei&quot;, &quot;drei&quot;, &quot;vier&quot;, &quot;fünf&quot;, &quot;sechs&quot;, &quot;sieben&quot;, &quot;acht&quot;, &quot;neun&quot;, &quot;zehn&quot;, &quot;1949–2002&quot;, &quot;3-598-23782-0&quot;)
 
+#extract cities
 cities &lt;- c(&quot;berlin&quot;, &quot;heidelberg&quot;, &quot;hamburg&quot;, &quot;münchen&quot;, &quot;köln&quot;, &quot;frankfurt&quot;, 
             &quot;stuttgart&quot;, &quot;düsseldorf&quot;, &quot;dortmund&quot;, &quot;essen&quot;, &quot;leipzig&quot;, 
             &quot;bremen&quot;, &quot;dresden&quot;, &quot;hannover&quot;, &quot;nürnberg&quot;, &quot;duisburg&quot;, 
@@ -555,20 +538,24 @@ cities &lt;- c(&quot;berlin&quot;, &quot;heidelberg&quot;, &quot;hamburg&quot;, 
             &quot;hagen&quot;, &quot;hamm&quot;, &quot;saarbrücken&quot;, &quot;mülheim an der ruhr&quot;, &quot;potsdam&quot;, 
             &quot;ludwigshafen&quot;, &quot;oldenburg&quot;, &quot;leverkusen&quot;, &quot;osnabrück&quot;, &quot;bonn&quot;)
 
+#extract stopwords &quot;Stoppwörter der Deutschen Rechtssprache (SW-DE-RS)&quot; (Fobbe, 2020)
 custom.stopwords &lt;- read.csv(&quot;data/raw/SW-DE-RS_v1-0-0_Datensatz.csv&quot;)
 custom.stopwords &lt;- unlist(custom.stopwords)
 custom.stopwords &lt;- unname(custom.stopwords)
 custom.stopwords &lt;- as.character(custom.stopwords)
 custom.stopwords &lt;- custom.stopwords[custom.stopwords!=&quot;&quot;]
 
-##############namen problem
+#combine all words that I want to remove from the vocabulary
 words_to_remove &lt;- unique(c(first_words, second_words, months, cities, stopwords(&quot;de&quot;)))
 
-#words_to_remove &lt;- unique(c(name_words, stopwords(&quot;de&quot;)))
+#############################################################################################################################################################
 
+#function to further process the corpus 
 
 process_corpus &lt;- function(corpus, gender_neutral_replacements, words_to_remove) {
-  # Tokenizing the corpus with specific removals and replacements
+  
+  # Tokenizing the corpus and removing/replacing data that messes with the analyis
+  # puntuation, capital letters, numbers etc. are removed
   tokens &lt;- tokens(corpus, remove_punct = TRUE, remove_numbers = TRUE, remove_symbols = TRUE) %&gt;%
     tokens_tolower() %&gt;%
     tokens_replace(pattern = names(gender_neutral_replacements), replacement = gender_neutral_replacements, case_insensitive = TRUE) %&gt;%
@@ -578,7 +565,7 @@ process_corpus &lt;- function(corpus, gender_neutral_replacements, words_to_remo
     tokens_remove(pattern = words_to_remove, padding = FALSE)
 
   
-  # Creating the DFM
+  # Creating a Document-Feature-Matrix (DFM) with the tokens
   dfmat &lt;- dfm(tokens)
   
   # Printing the result to check
@@ -609,8 +596,11 @@ process_corpus &lt;- function(corpus, gender_neutral_replacements, words_to_remo
   return(corpus_transposed)
 }
 
+#############################################################################################################################################################
 
-#main analysis uses threshhold min_p as 0.0002 - senstivity is shown with value 0.001 as used by Wagner et al.
+# the following function conducts the PMI analyis
+
+#main analysis uses threshhold min_p as 0.0002, for sensitivity analyis adapt values accordingly
 calculate_pmi_and_filter &lt;- function(corpus_transposed, corpus_name, min_p = 0.0002) {
   # Calculate total counts
   total_male_count &lt;- sum(corpus_transposed$male)
@@ -629,27 +619,34 @@ calculate_pmi_and_filter &lt;- function(corpus_transposed, corpus_name, min_p = 
            PMI_male = log(p_male_w / (p_w * p_c_male)) / -log(p_male_w),
            PMI_female = log(p_female_w / (p_w * p_c_female)) / -log(p_female_w))
 
-  # Filter for words with PMI value greater than 0.02 to only get relevant results
+  # Filter for words with PMI value greater than 0.02 to only get relevant results and cap at 100 words to get top 100 PMI words
+  #for female words
   filtered_female &lt;- pmi_df %&gt;%
     filter(p_w &gt; min_p &amp; PMI_female &gt; 0.02) %&gt;%
     arrange(desc(PMI_female))%&gt;%
     head(100)
-
+  #and for male words
   filtered_male &lt;- pmi_df %&gt;%
     filter(p_w &gt; min_p &amp; PMI_male &gt; 0.02) %&gt;%
     arrange(desc(PMI_male))%&gt;%
     head(100)
 
 
-  # Save to CSV (commented out)
-  write.csv(filtered_female, sprintf(&quot;data/pmi_list/%s_pmi_female.csv&quot;, corpus_name), row.names = FALSE)
-  write.csv(filtered_male, sprintf(&quot;data/pmi_list/%s_pmi_male.csv&quot;, corpus_name), row.names = FALSE)
+  # Save to CSV
+  write.csv(filtered_female, here(&quot;data&quot;, &quot;pmi_list&quot;, paste0(corpus_name, &quot;_pmi_female.csv&quot;)), row.names = FALSE)
+  write.csv(filtered_male, here(&quot;data&quot;, &quot;pmi_list&quot;, paste0(corpus_name, &quot;_pmi_male.csv&quot;)), row.names = FALSE)
 
   # Return a list containing both dataframes
   return(list(top_female = filtered_female, top_male = filtered_male))
 }</code></pre>
-<p>Analysis for different cohorts - create dataframe per cohort</p>
-<pre class="r"><code>cohort_assignment &lt;- function(year) {
+</div>
+<div id="create-subgroups-for-further-analyis" class="section level1">
+<h1>create subgroups for further analyis</h1>
+<p>In order to look into age and party groups, we need to define those
+groups. The following code serves this purpose</p>
+<pre class="r"><code># cretae three age cohorts
+
+cohort_assignment &lt;- function(year) {
   if(year &lt; 1949) {
     return(&quot;cohort1&quot;)
   } else if(year &gt;= 1949 &amp; year &lt;= 1969) {
@@ -660,46 +657,50 @@ calculate_pmi_and_filter &lt;- function(corpus_transposed, corpus_name, min_p = 
 }
 
 
-# Anwenden der Funktion auf den birthyear, um die Kohortenzugehörigkeit als Vektor zu erhalten
+# apply the function to the coumn birthyear
 cohort_vector &lt;- sapply(matched_data$birthyear, cohort_assignment)
 
-# Aufteilen des DataFrames in eine Liste von DataFrames basierend auf dem Kohortenvektor
+# split the data based on the defined cohorts
 list_of_dfs &lt;- split(matched_data, cohort_vector)
 
-
+# cretae one dataframe per cohort to conduct the PMI analyis for each cohort
 cohort1 &lt;- list_of_dfs$cohort1
 cohort2 &lt;- list_of_dfs$cohort2
 cohort3 &lt;- list_of_dfs$cohort3</code></pre>
-<p>Analysis for different parties - create dataframe per party</p>
-<pre class="r"><code>parties &lt;- c(&quot;FDP&quot;, &quot;AfD&quot;, &quot;BÜNDNIS 90/DIE GRÜNEN&quot;, &quot;CDU&quot;, &quot;CSU&quot;, &quot;SPD&quot;, &quot;DIE LINKE&quot;)
+<pre class="r"><code># Split up different parties in respective dataframes
 
-# Liste, um die separaten DataFrames zu speichern
+parties &lt;- c(&quot;FDP&quot;, &quot;AfD&quot;, &quot;BÜNDNIS 90/DIE GRÜNEN&quot;, &quot;CDU&quot;, &quot;CSU&quot;, &quot;SPD&quot;, &quot;DIE LINKE&quot;)
+
+# list to save the individual party dataframes
 party_dfs &lt;- list()
 
-# Schleife über die Namen der Parteien
+# Loop over the party names
 for(party in parties) {
   if(party == &quot;CDU&quot; || party == &quot;CSU&quot;) {
-    # Füge Daten für CDU und CSU zusammen, falls noch nicht geschehen
+    # Combine data for CDU and CSU
     if(!&quot;CDU_CSU&quot; %in% names(party_dfs)) {
       party_dfs[[&quot;CDU_CSU&quot;]] &lt;- matched_data[matched_data$party %in% c(&quot;CDU&quot;, &quot;CSU&quot;), ]
     }
   } else {
-    # Erstelle einen DataFrame für jede andere Partei
+    # Create a DataFrame for all other parties
     party_dfs[[party]] &lt;- matched_data[matched_data$party == party, ]
   }
 }
 
-# Zugriff auf den kombinierten DataFrame von CDU und CSU
+# get separate dataframes for each political party
 cdu_csu_df &lt;- party_dfs[[&quot;CDU_CSU&quot;]]
 greens_df &lt;- party_dfs[[&quot;BÜNDNIS 90/DIE GRÜNEN&quot;]]
 left_df &lt;- party_dfs[[&quot;DIE LINKE&quot;]]
 fdp_df &lt;- party_dfs[[&quot;FDP&quot;]]
 spd_df &lt;- party_dfs[[&quot;SPD&quot;]]
 afd_df &lt;- party_dfs[[&quot;AfD&quot;]]</code></pre>
-<p>apply functions:</p>
+<div id="apply-pipeline-to-all-relevant-groups" class="section level3">
+<h3>Apply pipeline to all relevant groups</h3>
+<p>In the following code, the functions to output the PMI lists are
+applied to all relevant groups</p>
 <pre class="r"><code># #whole sample, life section########################################################################################
 # # Step 1: 
-# corpus &lt;- prepare_corpus(deu, &quot;extracted_text&quot;)
+# corpus &lt;- prepare_vocabulary(deu, &quot;extracted_text&quot;)
 # 
 # # Step 2: 
 # corpus_transposed &lt;- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -711,7 +712,7 @@ afd_df &lt;- party_dfs[[&quot;AfD&quot;]]</code></pre>
 
 # #whole sample career/party section########################################################################################
 # # Step 1: 
-# corpus &lt;- prepare_corpus(deu, &quot;career_text&quot;)
+# corpus &lt;- prepare_vocabulary(deu, &quot;career_text&quot;)
 # 
 # # Step 2: 
 # corpus_transposed &lt;- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -721,7 +722,7 @@ afd_df &lt;- party_dfs[[&quot;AfD&quot;]]</code></pre>
 # 
 # #matched data life section########################################################################################
 # # Step 1: 
-# corpus &lt;- prepare_corpus(matched_data, &quot;extracted_text&quot;)
+# corpus &lt;- prepare_vocabulary(matched_data, &quot;extracted_text&quot;)
 # 
 # # Step 2: 
 # corpus_transposed &lt;- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -731,7 +732,7 @@ afd_df &lt;- party_dfs[[&quot;AfD&quot;]]</code></pre>
 # 
 # #matched data career section########################################################################################
 # # Step 1: 
-# corpus &lt;- prepare_corpus(matched_data, &quot;career_text&quot;)
+# corpus &lt;- prepare_vocabulary(matched_data, &quot;career_text&quot;)
 # 
 # # Step 2: 
 # corpus_transposed &lt;- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -745,7 +746,7 @@ afd_df &lt;- party_dfs[[&quot;AfD&quot;]]</code></pre>
 
 # # #matched sample, old life section########################################################################################
 # # # Step 1:
-# corpus &lt;- prepare_corpus(matched_data, &quot;extracted_text_old&quot;)
+# corpus &lt;- prepare_vocabulary(matched_data, &quot;extracted_text_old&quot;)
 # 
 # # Step 2:
 # corpus_transposed &lt;- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -755,7 +756,7 @@ afd_df &lt;- party_dfs[[&quot;AfD&quot;]]</code></pre>
 # 
 # # #matched sample, new life section########################################################################################
 # # Step 1:
-# corpus &lt;- prepare_corpus(matched_data, &quot;extracted_text_new&quot;)
+# corpus &lt;- prepare_vocabulary(matched_data, &quot;extracted_text_new&quot;)
 # 
 # # Step 2:
 # corpus_transposed &lt;- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -766,7 +767,7 @@ afd_df &lt;- party_dfs[[&quot;AfD&quot;]]</code></pre>
 # 
 # # #matched sample, old career section########################################################################################
 # # # Step 1:
-# corpus &lt;- prepare_corpus(matched_data, &quot;career_text_old&quot;)
+# corpus &lt;- prepare_vocabulary(matched_data, &quot;career_text_old&quot;)
 # 
 # # Step 2:
 # corpus_transposed &lt;- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -776,7 +777,7 @@ afd_df &lt;- party_dfs[[&quot;AfD&quot;]]</code></pre>
 # 
 # # #matched sample, new career section########################################################################################
 # # Step 1:
-# corpus &lt;- prepare_corpus(matched_data, &quot;career_text_new&quot;)
+# corpus &lt;- prepare_vocabulary(matched_data, &quot;career_text_new&quot;)
 # 
 # # Step 2:
 # corpus_transposed &lt;- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -788,7 +789,7 @@ afd_df &lt;- party_dfs[[&quot;AfD&quot;]]</code></pre>
 # 
 # #cohort 1 career section########################################################################################
 # # Step 1: 
-# corpus &lt;- prepare_corpus(first_cohort, &quot;career_text&quot;)
+# corpus &lt;- prepare_vocabulary(first_cohort, &quot;career_text&quot;)
 # 
 # # Step 2: 
 # corpus_transposed &lt;- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -799,7 +800,7 @@ afd_df &lt;- party_dfs[[&quot;AfD&quot;]]</code></pre>
 # 
 # #cohort 2 career section########################################################################################
 # # Step 1: 
-# corpus &lt;- prepare_corpus(second_cohort, &quot;career_text&quot;)
+# corpus &lt;- prepare_vocabulary(second_cohort, &quot;career_text&quot;)
 # 
 # # Step 2: 
 # corpus_transposed &lt;- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -810,7 +811,7 @@ afd_df &lt;- party_dfs[[&quot;AfD&quot;]]</code></pre>
 # 
 # #cohort 3 career section########################################################################################
 # # Step 1: 
-# corpus &lt;- prepare_corpus(third_cohort, &quot;career_text&quot;)
+# corpus &lt;- prepare_vocabulary(third_cohort, &quot;career_text&quot;)
 # 
 # # Step 2: 
 # corpus_transposed &lt;- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -821,7 +822,7 @@ afd_df &lt;- party_dfs[[&quot;AfD&quot;]]</code></pre>
 # 
 # #cohort 4 career section########################################################################################
 # # Step 1: 
-# corpus &lt;- prepare_corpus(fourth_cohort, &quot;career_text&quot;)
+# corpus &lt;- prepare_vocabulary(fourth_cohort, &quot;career_text&quot;)
 # 
 # # Step 2: 
 # corpus_transposed &lt;- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -832,7 +833,7 @@ afd_df &lt;- party_dfs[[&quot;AfD&quot;]]</code></pre>
 # 
 # #cohort 5 career section########################################################################################
 # # Step 1: 
-# corpus &lt;- prepare_corpus(fifth_cohort, &quot;career_text&quot;)
+# corpus &lt;- prepare_vocabulary(fifth_cohort, &quot;career_text&quot;)
 # 
 # # Step 2: 
 # corpus_transposed &lt;- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -842,7 +843,7 @@ afd_df &lt;- party_dfs[[&quot;AfD&quot;]]</code></pre>
 # 
 # #cohort 1 life section########################################################################################
 # # Step 1: 
-# corpus &lt;- prepare_corpus(first_cohort, &quot;extracted_text&quot;)
+# corpus &lt;- prepare_vocabulary(first_cohort, &quot;extracted_text&quot;)
 # 
 # # Step 2: 
 # corpus_transposed &lt;- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -853,7 +854,7 @@ afd_df &lt;- party_dfs[[&quot;AfD&quot;]]</code></pre>
 # 
 # #cohort 2 life section########################################################################################
 # # Step 1: 
-# corpus &lt;- prepare_corpus(second_cohort, &quot;extracted_text&quot;)
+# corpus &lt;- prepare_vocabulary(second_cohort, &quot;extracted_text&quot;)
 # 
 # # Step 2: 
 # corpus_transposed &lt;- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -864,7 +865,7 @@ afd_df &lt;- party_dfs[[&quot;AfD&quot;]]</code></pre>
 # 
 # #cohort 3 life section########################################################################################
 # # Step 1: 
-# corpus &lt;- prepare_corpus(third_cohort, &quot;extracted_text&quot;)
+# corpus &lt;- prepare_vocabulary(third_cohort, &quot;extracted_text&quot;)
 # 
 # # Step 2: 
 # corpus_transposed &lt;- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -875,7 +876,7 @@ afd_df &lt;- party_dfs[[&quot;AfD&quot;]]</code></pre>
 # 
 # #cohort 4 life section########################################################################################
 # # Step 1: 
-# corpus &lt;- prepare_corpus(fourth_cohort, &quot;extracted_text&quot;)
+# corpus &lt;- prepare_vocabulary(fourth_cohort, &quot;extracted_text&quot;)
 # 
 # # Step 2: 
 # corpus_transposed &lt;- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -886,7 +887,7 @@ afd_df &lt;- party_dfs[[&quot;AfD&quot;]]</code></pre>
 # 
 # #cohort 5 life section########################################################################################
 # # Step 1: 
-# corpus &lt;- prepare_corpus(fifth_cohort, &quot;extracted_text&quot;)
+# corpus &lt;- prepare_vocabulary(fifth_cohort, &quot;extracted_text&quot;)
 # 
 # # Step 2: 
 # corpus_transposed &lt;- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -900,7 +901,7 @@ afd_df &lt;- party_dfs[[&quot;AfD&quot;]]</code></pre>
 #cohorts - 3 groups
 #cohort 3 life section########################################################################################
 # # Step 1:
-# corpus &lt;- prepare_corpus(cohort3, &quot;extracted_text&quot;)
+# corpus &lt;- prepare_vocabulary(cohort3, &quot;extracted_text&quot;)
 # 
 # # Step 2:
 # corpus_transposed &lt;- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -911,7 +912,7 @@ afd_df &lt;- party_dfs[[&quot;AfD&quot;]]</code></pre>
 # 
 # #cohort 2 life section########################################################################################
 # # Step 1:
-# corpus &lt;- prepare_corpus(cohort2, &quot;extracted_text&quot;)
+# corpus &lt;- prepare_vocabulary(cohort2, &quot;extracted_text&quot;)
 # 
 # # Step 2:
 # corpus_transposed &lt;- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -921,7 +922,7 @@ afd_df &lt;- party_dfs[[&quot;AfD&quot;]]</code></pre>
 # 
 # #cohort 1 life section########################################################################################
 # # Step 1:
-# corpus &lt;- prepare_corpus(cohort1, &quot;extracted_text&quot;)
+# corpus &lt;- prepare_vocabulary(cohort1, &quot;extracted_text&quot;)
 # 
 # # Step 2:
 # corpus_transposed &lt;- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -932,7 +933,7 @@ afd_df &lt;- party_dfs[[&quot;AfD&quot;]]</code></pre>
 # 
 # #cohort 3 career section########################################################################################
 # # Step 1:
-# corpus &lt;- prepare_corpus(cohort3, &quot;career_text&quot;)
+# corpus &lt;- prepare_vocabulary(cohort3, &quot;career_text&quot;)
 # 
 # # Step 2:
 # corpus_transposed &lt;- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -942,7 +943,7 @@ afd_df &lt;- party_dfs[[&quot;AfD&quot;]]</code></pre>
 # 
 # #cohort 2 career section########################################################################################
 # # Step 1:
-# corpus &lt;- prepare_corpus(cohort2, &quot;career_text&quot;)
+# corpus &lt;- prepare_vocabulary(cohort2, &quot;career_text&quot;)
 # 
 # # Step 2:
 # corpus_transposed &lt;- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -952,7 +953,7 @@ afd_df &lt;- party_dfs[[&quot;AfD&quot;]]</code></pre>
 # 
 # #cohort 1 career section########################################################################################
 # # Step 1:
-# corpus &lt;- prepare_corpus(cohort1, &quot;career_text&quot;)
+# corpus &lt;- prepare_vocabulary(cohort1, &quot;career_text&quot;)
 # 
 # # Step 2:
 # corpus_transposed &lt;- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -963,7 +964,7 @@ afd_df &lt;- party_dfs[[&quot;AfD&quot;]]</code></pre>
 # # 
 # #afd life section########################################################################################
 # # Step 1: 
-# corpus &lt;- prepare_corpus(afd_df, &quot;extracted_text&quot;)
+# corpus &lt;- prepare_vocabulary(afd_df, &quot;extracted_text&quot;)
 # 
 # # Step 2: 
 # corpus_transposed &lt;- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -973,7 +974,7 @@ afd_df &lt;- party_dfs[[&quot;AfD&quot;]]</code></pre>
 # 
 # #cdu/csu life section########################################################################################
 # # Step 1: 
-# corpus &lt;- prepare_corpus(cdu_csu_df, &quot;extracted_text&quot;)
+# corpus &lt;- prepare_vocabulary(cdu_csu_df, &quot;extracted_text&quot;)
 # 
 # # Step 2: 
 # corpus_transposed &lt;- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -983,7 +984,7 @@ afd_df &lt;- party_dfs[[&quot;AfD&quot;]]</code></pre>
 # 
 # #greens life section########################################################################################
 # # Step 1: 
-# corpus &lt;- prepare_corpus(greens_df, &quot;extracted_text&quot;)
+# corpus &lt;- prepare_vocabulary(greens_df, &quot;extracted_text&quot;)
 # 
 # # Step 2: 
 # corpus_transposed &lt;- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -993,7 +994,7 @@ afd_df &lt;- party_dfs[[&quot;AfD&quot;]]</code></pre>
 # 
 # #left life section########################################################################################
 # # Step 1: 
-# corpus &lt;- prepare_corpus(left_df, &quot;extracted_text&quot;)
+# corpus &lt;- prepare_vocabulary(left_df, &quot;extracted_text&quot;)
 # 
 # # Step 2: 
 # corpus_transposed &lt;- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -1003,7 +1004,7 @@ afd_df &lt;- party_dfs[[&quot;AfD&quot;]]</code></pre>
 # 
 # #fdp life section########################################################################################
 # # Step 1: 
-# corpus &lt;- prepare_corpus(fdp_df, &quot;extracted_text&quot;)
+# corpus &lt;- prepare_vocabulary(fdp_df, &quot;extracted_text&quot;)
 # 
 # # Step 2: 
 # corpus_transposed &lt;- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -1013,7 +1014,7 @@ afd_df &lt;- party_dfs[[&quot;AfD&quot;]]</code></pre>
 # 
 # #spd life section########################################################################################
 # # Step 1: 
-# corpus &lt;- prepare_corpus(spd_df, &quot;extracted_text&quot;)
+# corpus &lt;- prepare_vocabulary(spd_df, &quot;extracted_text&quot;)
 # 
 # # Step 2: 
 # corpus_transposed &lt;- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -1023,7 +1024,7 @@ afd_df &lt;- party_dfs[[&quot;AfD&quot;]]</code></pre>
 # 
 # #afd career section########################################################################################
 # # Step 1: 
-# corpus &lt;- prepare_corpus(afd_df, &quot;career_text&quot;)
+# corpus &lt;- prepare_vocabulary(afd_df, &quot;career_text&quot;)
 # 
 # # Step 2: 
 # corpus_transposed &lt;- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -1033,7 +1034,7 @@ afd_df &lt;- party_dfs[[&quot;AfD&quot;]]</code></pre>
 # 
 # #cdu/csu career section########################################################################################
 # # Step 1: 
-# corpus &lt;- prepare_corpus(cdu_csu_df, &quot;career_text&quot;)
+# corpus &lt;- prepare_vocabulary(cdu_csu_df, &quot;career_text&quot;)
 # 
 # # Step 2: 
 # corpus_transposed &lt;- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -1043,7 +1044,7 @@ afd_df &lt;- party_dfs[[&quot;AfD&quot;]]</code></pre>
 # 
 # #greens career section########################################################################################
 # # Step 1: 
-# corpus &lt;- prepare_corpus(greens_df, &quot;career_text&quot;)
+# corpus &lt;- prepare_vocabulary(greens_df, &quot;career_text&quot;)
 # 
 # # Step 2: 
 # corpus_transposed &lt;- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -1053,7 +1054,7 @@ afd_df &lt;- party_dfs[[&quot;AfD&quot;]]</code></pre>
 # 
 # #left career section########################################################################################
 # # Step 1: 
-# corpus &lt;- prepare_corpus(left_df, &quot;career_text&quot;)
+# corpus &lt;- prepare_vocabulary(left_df, &quot;career_text&quot;)
 # 
 # # Step 2: 
 # corpus_transposed &lt;- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -1063,7 +1064,7 @@ afd_df &lt;- party_dfs[[&quot;AfD&quot;]]</code></pre>
 # 
 # #fdp career section########################################################################################
 # # Step 1: 
-# corpus &lt;- prepare_corpus(fdp_df, &quot;career_text&quot;)
+# corpus &lt;- prepare_vocabulary(fdp_df, &quot;career_text&quot;)
 # 
 # # Step 2: 
 # corpus_transposed &lt;- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -1073,19 +1074,21 @@ afd_df &lt;- party_dfs[[&quot;AfD&quot;]]</code></pre>
 # 
 # #spd career section########################################################################################
 # # Step 1: 
-# corpus &lt;- prepare_corpus(spd_df, &quot;career_text&quot;)
+# corpus &lt;- prepare_vocabulary(spd_df, &quot;career_text&quot;)
 # 
 # # Step 2: 
 # corpus_transposed &lt;- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
 # 
 # # Step 3: 
 # results &lt;- calculate_pmi_and_filter(corpus_transposed, &quot;spd_career&quot;)</code></pre>
-<p>Sensitivity Analysis for different thresholds</p>
-<pre class="r"><code># ######## IMOPRTANT: Set min_p to the respective threshhold you want to test! #########################################
+</div>
+<div id="sensitivity-analysis-for-different-thresholds" class="section level3">
+<h3>Sensitivity Analysis for different thresholds</h3>
+<pre class="r"><code># ######## IMOPRTANT: Set min_p to the respective threshhold to be tested #########################################
 # 
 # # #whole sample, life section threshold 0.001 ########################################################################################
 # # Step 1:
-# corpus &lt;- prepare_corpus(deu, &quot;extracted_text&quot;)
+# corpus &lt;- prepare_vocabulary(deu, &quot;extracted_text&quot;)
 # 
 # # Step 2:
 # corpus_transposed &lt;- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -1096,7 +1099,7 @@ afd_df &lt;- party_dfs[[&quot;AfD&quot;]]</code></pre>
 # 
 # # #whole sample career/party section########################################################################################
 # # # Step 1:
-# corpus &lt;- prepare_corpus(deu, &quot;career_text&quot;)
+# corpus &lt;- prepare_vocabulary(deu, &quot;career_text&quot;)
 # 
 # # Step 2:
 # corpus_transposed &lt;- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -1108,7 +1111,7 @@ afd_df &lt;- party_dfs[[&quot;AfD&quot;]]</code></pre>
 # 
 # # #whole sample, life section threshold 0.0007########################################################################################
 # # Step 1:
-# corpus &lt;- prepare_corpus(deu, &quot;extracted_text&quot;)
+# corpus &lt;- prepare_vocabulary(deu, &quot;extracted_text&quot;)
 # 
 # # Step 2:
 # corpus_transposed &lt;- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -1119,7 +1122,7 @@ afd_df &lt;- party_dfs[[&quot;AfD&quot;]]</code></pre>
 # 
 # # #whole sample career/party section########################################################################################
 # # # Step 1:
-# corpus &lt;- prepare_corpus(deu, &quot;career_text&quot;)
+# corpus &lt;- prepare_vocabulary(deu, &quot;career_text&quot;)
 # 
 # # Step 2:
 # corpus_transposed &lt;- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -1132,7 +1135,7 @@ afd_df &lt;- party_dfs[[&quot;AfD&quot;]]</code></pre>
 # # #whole sample career/party section threshold 0.0004 ########################################################################################
 # # # Step 1:
 # 
-# corpus &lt;- prepare_corpus(deu, &quot;extracted_text&quot;)
+# corpus &lt;- prepare_vocabulary(deu, &quot;extracted_text&quot;)
 # 
 # # Step 2:
 # corpus_transposed &lt;- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -1143,7 +1146,7 @@ afd_df &lt;- party_dfs[[&quot;AfD&quot;]]</code></pre>
 # 
 # # #whole sample career/party section Threshold 0.0003########################################################################################
 # # # Step 1:
-# corpus &lt;- prepare_corpus(deu, &quot;career_text&quot;)
+# corpus &lt;- prepare_vocabulary(deu, &quot;career_text&quot;)
 # 
 # # Step 2:
 # corpus_transposed &lt;- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
@@ -1153,10 +1156,9 @@ afd_df &lt;- party_dfs[[&quot;AfD&quot;]]</code></pre>
 # 
 # 
 # 
-# corpus &lt;- prepare_corpus(deu, &quot;extracted_text&quot;)
+# corpus &lt;- prepare_vocabulary(deu, &quot;extracted_text&quot;)
 # 
 # # Step 2:
-# corpus_transposed &lt;- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
 # 
 # # Step 3:
 # results &lt;- calculate_pmi_and_filter(corpus_transposed, &quot;S4_deu_life&quot;)
@@ -1164,13 +1166,15 @@ afd_df &lt;- party_dfs[[&quot;AfD&quot;]]</code></pre>
 # 
 # # #whole sample career/party section########################################################################################
 # # # Step 1:
-# corpus &lt;- prepare_corpus(deu, &quot;career_text&quot;)
+# corpus &lt;- prepare_vocabulary(deu, &quot;career_text&quot;)
 # 
 # # Step 2:
 # corpus_transposed &lt;- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
 # 
 # # Step 3:
 # results &lt;- calculate_pmi_and_filter(corpus_transposed, &quot;S4_deu_career&quot;)</code></pre>
+</div>
+</div>
 
 
 

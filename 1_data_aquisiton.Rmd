@@ -1,15 +1,14 @@
 ---
-title: "Data_aquisition"
+title: "Sript to aquire all necessary raw data"
 author: "Hannah Schweren"
 date: "2024-03-15"
 output: html_document
 ---
-Sript to aquire all necessary data for the analysis
 
+This script provies the code to aquire the necessary Wikipedia Data for my analyis, using the CLD database and the wikiediaR package. It outputs the raw data used for the analysis, namely "deu_text".
 
-
-necessary packages
-```{r}
+### Necessary packages
+```{r message=FALSE, warning=FALSE}
 library(legislatoR)
 library(WikipediR)
 library(rvest)
@@ -23,7 +22,10 @@ library(rvest)
 library(pbapply)
 ```
 
-Read in and save the CLD data for Germany
+### Get CLD Data
+
+
+In order to conduct the analysis, we need the Comparative Legislator Database for Germany which we can simply access via the legislatoR package. The data is read in ans saved in the following code.
 ```{r}
 # deu_core <- get_core(legislature = "deu")
 # deu_political <- get_political(legislature = "deu")
@@ -40,12 +42,16 @@ Read in and save the CLD data for Germany
 ```
 
 
-Necessary functions
+### Necessary functions
+
+The following code provides the functions necessary to aquire the wikipedia texts, using the page_name of the politicians. 
 ```{r}
 
-#function to aquire the wikipedia text
+#function to aquire the current wikipedia text
 
 de_text_pipeline <- function(page_name) {
+  
+  #best practice to avoid overloading the Wikipedia servers and to practice responsible web scraping
   Sys.sleep(runif(1, 1, 2))
   
   # Check if page_name is missing
@@ -53,7 +59,7 @@ de_text_pipeline <- function(page_name) {
     return("No Wikipedia page name provided or missing.")
   }
   
-  # Try fetching Wikipedia content
+  # Try fetching Wikipedia content and return text or message in case of errors
   tryCatch({
     wp_content <- WikipediR::page_content("de", "wikipedia", page_name = page_name)
     plain_text <- html_text(read_html(wp_content$parse$text$`*`))
@@ -66,15 +72,16 @@ de_text_pipeline <- function(page_name) {
 ##########################################################################################################
 
 #function to get old versions of Wikipedia pages
+
 get_wikipedia_content_from_past <- function(wikititle) {
-  
+  #best practice to avoid overloading the Wikipedia servers and to practice responsible web scraping
   Sys.sleep(runif(1, 1, 2))
-  
   rvest_session <- session(url, 
                            add_headers(`From` = "hannahschweren@gmail.com", 
                                        `User-Agent` = R.Version()$version.string))
   
-  ten_years_ago <- format(Sys.Date() - 3650, "%Y%m%d%H%M%S")
+  ten_years_ago <- format(Sys.Date() - 3650, "%Y%m%d%H%M%S") #set date of 10 years ago
+  #put together URL of the old version's text
   url <- paste0("https://de.wikipedia.org/w/api.php?action=query&prop=revisions&titles=", 
                 wikititle, "&rvlimit=1&rvdir=older&rvstart=", ten_years_ago, 
                 "&format=json&formatversion=2")
@@ -92,13 +99,13 @@ get_wikipedia_content_from_past <- function(wikititle) {
   content_response_content <- content(content_response, "text", encoding = "UTF-8")
   parsed_content_response <- fromJSON(content_response_content)
   
-  # Eextract html content
+  # Extract html content
   html_content <- parsed_content_response$parse$text$`*`
   html_doc <- read_html(html_content)
   
-  # Extrahiere den reinen Text
+  # extract and return the plain wikipedia text
   plain_text <- html_text(html_doc)
-  
+
   return(plain_text)
 }
 
@@ -118,7 +125,8 @@ apply_function_with_progress <- function(df) {
 ```
 
 
-Apply function to the German CLD dataset
+### Apply functions
+Next, the functions are applied to the German CLD dataset in order to get the politician's biographies 
 ```{r}
 
 # aquire full wiki text per politician
@@ -145,7 +153,9 @@ Apply function to the German CLD dataset
 
 
 
-save the raw data
+### Save the raw data
+
+The raw data is saved in order to be used for the follwoing analysis
 ```{r}
 #write.csv(deu_text, file = here("data", "raw", "deu_text.csv"), row.names = FALSE)
 

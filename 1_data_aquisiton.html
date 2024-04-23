@@ -13,7 +13,7 @@
 
 <meta name="date" content="2024-03-15" />
 
-<title>Data_aquisition</title>
+<title>Sript to aquire all necessary raw data</title>
 
 <script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
 // be compatible with the behavior of Pandoc < 2.8).
@@ -350,35 +350,35 @@ display: none;
 
 
 
-<h1 class="title toc-ignore">Data_aquisition</h1>
+<h1 class="title toc-ignore">Sript to aquire all necessary raw data</h1>
 <h4 class="author">Hannah Schweren</h4>
 <h4 class="date">2024-03-15</h4>
 
 </div>
 
 
-<p>Sript to aquire all necessary data for the analysis</p>
-<p>necessary packages</p>
+<p>This script provies the code to aquire the necessary Wikipedia Data
+for my analyis, using the CLD database and the wikiediaR package. It
+outputs the raw data used for the analysis.</p>
+<div id="necessary-packages" class="section level3">
+<h3>Necessary packages</h3>
 <pre class="r"><code>library(legislatoR)
 library(WikipediR)
 library(rvest)
-library(dplyr)</code></pre>
-<pre><code>## 
-## Attaching package: &#39;dplyr&#39;</code></pre>
-<pre><code>## The following objects are masked from &#39;package:stats&#39;:
-## 
-##     filter, lag</code></pre>
-<pre><code>## The following objects are masked from &#39;package:base&#39;:
-## 
-##     intersect, setdiff, setequal, union</code></pre>
-<pre class="r"><code>library(here)</code></pre>
-<pre><code>## here() starts at /Users/hannahschweren/Documents/Zukunft/Master/drittes semester/thesis/Code/thesis</code></pre>
-<pre class="r"><code>#for old data:
+library(dplyr)
+library(here)
+
+#for old data:
 library(httr)
 library(jsonlite)
 library(rvest)
 library(pbapply)</code></pre>
-<p>Read in and save the CLD data for Germany</p>
+</div>
+<div id="get-cld-data" class="section level3">
+<h3>Get CLD Data</h3>
+<p>In order to conduct the analysis, we need the Comparative Legislator
+Database for Germany which we can simply access via the legislatoR
+package. The data is read in ans saved in the following code.</p>
 <pre class="r"><code># deu_core &lt;- get_core(legislature = &quot;deu&quot;)
 # deu_political &lt;- get_political(legislature = &quot;deu&quot;)
 # deu_traffic &lt;- get_traffic(legislature = &quot;deu&quot;)
@@ -390,10 +390,16 @@ library(pbapply)</code></pre>
 # write.csv(deu_traffic, here(&quot;data&quot;, &quot;raw&quot;, &quot;deu_traffic.csv&quot;), row.names = FALSE)
 # write.csv(deu_offices, here(&quot;data&quot;, &quot;raw&quot;, &quot;deu_offices.csv&quot;), row.names = FALSE)
 # write.csv(deu_history, here(&quot;data&quot;, &quot;raw&quot;, &quot;deu_history.csv&quot;), row.names = FALSE)</code></pre>
-<p>Necessary functions</p>
-<pre class="r"><code>#function to aquire the wikipedia text
+</div>
+<div id="necessary-functions" class="section level3">
+<h3>Necessary functions</h3>
+<p>The following code provides the functions necessary to aquire the
+wikipedia texts, using the page_name of the politicians.</p>
+<pre class="r"><code>#function to aquire the current wikipedia text
 
 de_text_pipeline &lt;- function(page_name) {
+  
+  #best practice to avoid overloading the Wikipedia servers and to practice responsible web scraping
   Sys.sleep(runif(1, 1, 2))
   
   # Check if page_name is missing
@@ -401,7 +407,7 @@ de_text_pipeline &lt;- function(page_name) {
     return(&quot;No Wikipedia page name provided or missing.&quot;)
   }
   
-  # Try fetching Wikipedia content
+  # Try fetching Wikipedia content and return text or message in case of errors
   tryCatch({
     wp_content &lt;- WikipediR::page_content(&quot;de&quot;, &quot;wikipedia&quot;, page_name = page_name)
     plain_text &lt;- html_text(read_html(wp_content$parse$text$`*`))
@@ -414,15 +420,16 @@ de_text_pipeline &lt;- function(page_name) {
 ##########################################################################################################
 
 #function to get old versions of Wikipedia pages
+
 get_wikipedia_content_from_past &lt;- function(wikititle) {
-  
+  #best practice to avoid overloading the Wikipedia servers and to practice responsible web scraping
   Sys.sleep(runif(1, 1, 2))
-  
   rvest_session &lt;- session(url, 
                            add_headers(`From` = &quot;hannahschweren@gmail.com&quot;, 
                                        `User-Agent` = R.Version()$version.string))
   
-  ten_years_ago &lt;- format(Sys.Date() - 3650, &quot;%Y%m%d%H%M%S&quot;)
+  ten_years_ago &lt;- format(Sys.Date() - 3650, &quot;%Y%m%d%H%M%S&quot;) #set date of 10 years ago
+  #put together URL of the old version&#39;s text
   url &lt;- paste0(&quot;https://de.wikipedia.org/w/api.php?action=query&amp;prop=revisions&amp;titles=&quot;, 
                 wikititle, &quot;&amp;rvlimit=1&amp;rvdir=older&amp;rvstart=&quot;, ten_years_ago, 
                 &quot;&amp;format=json&amp;formatversion=2&quot;)
@@ -440,13 +447,13 @@ get_wikipedia_content_from_past &lt;- function(wikititle) {
   content_response_content &lt;- content(content_response, &quot;text&quot;, encoding = &quot;UTF-8&quot;)
   parsed_content_response &lt;- fromJSON(content_response_content)
   
-  # Eextract html content
+  # Extract html content
   html_content &lt;- parsed_content_response$parse$text$`*`
   html_doc &lt;- read_html(html_content)
   
-  # Extrahiere den reinen Text
+  # extract and return the plain wikipedia text
   plain_text &lt;- html_text(html_doc)
-  
+
   return(plain_text)
 }
 
@@ -460,7 +467,11 @@ apply_function_with_progress &lt;- function(df) {
   })
   return(df)
 }</code></pre>
-<p>Apply function to the German CLD dataset</p>
+</div>
+<div id="apply-functions" class="section level3">
+<h3>Apply functions</h3>
+<p>Next, the functions are applied to the German CLD dataset in order to
+get the politician’s biographies</p>
 <pre class="r"><code># aquire full wiki text per politician
 
 # deu_text &lt;- deu_core %&gt;%
@@ -479,8 +490,13 @@ apply_function_with_progress &lt;- function(df) {
 #     x
 #   }
 # })</code></pre>
-<p>save the raw data</p>
+</div>
+<div id="save-the-data" class="section level3">
+<h3>Save the data</h3>
+<p>The raw data is saved in order to be used for the follwoing
+analysis</p>
 <pre class="r"><code>#write.csv(deu_text, file = here(&quot;data&quot;, &quot;raw&quot;, &quot;deu_text.csv&quot;), row.names = FALSE)</code></pre>
+</div>
 
 
 

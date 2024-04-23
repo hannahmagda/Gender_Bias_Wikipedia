@@ -1,15 +1,15 @@
 ---
-title: "data_cleaning"
+title: "Skript to clean and match the data"
 author: "Hannah Schweren"
 date: "2024-03-15"
 output: html_document
 ---
 
-Skript to clean the data and prepare it for the further analysis
 
+This script provides the code for cleaning the data and thereby preparing it for the further analysis. Also, it includes code for the matching procedure of the data. This script outputs the two datasets used for the analysis: "Deu", containing the whole cleaned data for all German politicians and "matched_data". the dataset containing the matched body of politicians.
 
-necessary packages
-```{r}
+### Necessary packages
+```{r message=FALSE, warning=FALSE}
 library(legislatoR)
 library(WikipediR)
 library(rvest)
@@ -22,7 +22,7 @@ library(here)
 ```
 
 
-load the raw data
+### Get the raw data
 ```{r}
 deu_political <- read.csv(here("data", "raw", "deu_political.csv"))
 deu_traffic <- read.csv(here("data", "raw", "deu_traffic.csv"))
@@ -33,33 +33,10 @@ deu_history <- read.csv(here("data", "raw", "deu_history.csv"))
 
 ```
 
-Necessary functions
+### Necessary functions
+
+The following code provides all the functions used in this script to clean the data, create new variables containing sub-sections of the wikipedia text, the number of links of each text and if a politician holds an important office.
 ```{r}
-
-# function to extract "life" or "party/career" section
-extract_content <- function(text, section = 1) {
-  tryCatch({
-    parts <- str_split(text, "\\[Bearbeiten \\| Quelltext bearbeiten\\]")[[1]]
-    
-    if (length(parts) > section) {
-      content_between = parts[section]
-      paragraph_positions <- str_locate_all(content_between, "\n\n")[[1]][,1]
-      
-      if (length(paragraph_positions) > 0) {
-        last_paragraph_pos <- max(paragraph_positions, na.rm = TRUE)
-        return(substr(content_between, 1, last_paragraph_pos))
-      } else {
-        return(content_between)
-      }
-    } else {
-      return(NA)
-    }
-  }, error = function(e) { 
-    NA 
-  })
-}
-
-###################################################################################################
 
 #function to clean the aquired text data
 
@@ -98,31 +75,60 @@ clean_data <- function(df) {
   return(df)
 }
 
+###################################################################################################
+
+# function to extract "life" or "party/career" section
+extract_content <- function(text, section = 1) {
+  tryCatch({
+    parts <- str_split(text, "\\[Bearbeiten \\| Quelltext bearbeiten\\]")[[1]]
+    
+    if (length(parts) > section) {
+      content_between = parts[section]
+      paragraph_positions <- str_locate_all(content_between, "\n\n")[[1]][,1]
+      
+      if (length(paragraph_positions) > 0) {
+        last_paragraph_pos <- max(paragraph_positions, na.rm = TRUE)
+        return(substr(content_between, 1, last_paragraph_pos))
+      } else {
+        return(content_between)
+      }
+    } else {
+      return(NA)
+    }
+  }, error = function(e) { 
+    NA 
+  })
+}
+
+
 #############################################################################################################
 
+#function to check, wether a politician held an important office. 
 check_office <- function(wikidataid, offices_dataset) {
   office_row <- offices_dataset[offices_dataset$wikidataid == wikidataid, ]
   
-  # coloumns to be checked
+  # columns indicating that a politicna held an important office
   specific_columns <- c("bundesminister", "federal_chancellor_of_germany", 
                         "president_of_germany", "president_of_the_bundestag")
   
-  # plus all coloumns beginning with federal minister
+  # plus all columns beginning with federal minister
   federal_minister_columns <- grep("^federal_minister", names(offices_dataset), value = TRUE)
   
-  # combine those coloumns
+  # combine those columns
   relevant_columns <- c(specific_columns, federal_minister_columns)
   
-  # check if coloumns exist
+  # check if columns exist
   relevant_columns <- relevant_columns[relevant_columns %in% names(office_row)]
   
   # check for cases that match the condition
   any_true <- any(office_row[relevant_columns] == TRUE, na.rm = TRUE)
   
+  # Return TRUE if any relevant column contains TRUE, otherwise return FALSE
   return(ifelse(length(any_true) == 0, FALSE, any_true))
 }
 
 ##################################################################################################
+
 #function to get the number of links per page
 
 get_links <- function(wiki_name) {
@@ -149,17 +155,17 @@ get_links <- function(wiki_name) {
 }
 ```
 
+### Apply the functions to the dataframe
 
-clean the raw text data
+Using the above functions, we can remove redirects and other observations containing errors in the scraped data and are left with only meaningful observations
 ```{r}
 #clean the data
 deu <- clean_data(deu_text)
 
-
-
 ```
 
-add the extracted sections and other variables that are needed for the analysis as new coloumns
+
+Next, we add the variables for the extracted life and career sections for the old and current data
 ```{r}
 
 #extract "life" section
@@ -172,6 +178,7 @@ deu <- deu %>%
   mutate(career_text = map_chr(plain_text, ~possibly(extract_content, otherwise = NA_character_)(.x, section = 3)))
 
 #################################################################################################################
+
 # same procedure for the old version data
 
 #extract old "life" section
@@ -183,12 +190,12 @@ deu <- deu %>%
 deu <- deu %>%
   mutate(career_text_old = map_chr(old_text, ~possibly(extract_content, otherwise = NA_character_)(.x, section = 3)))
 
-
+#in order to only compare old texts to new ones that already existed ten years ago, I add a column that only contains current texts, if old ones exist as well.
 deu$extracted_text_new <- ifelse(is.na(deu$extracted_text_old), NA, deu$extracted_text)
 
 deu$career_text_new <- ifelse(is.na(deu$career_text_old), NA, deu$career_text)
 
-
+#add a column stating the text length of the biography sections
 deu <- deu %>%
   mutate(text_length_life = nchar(extracted_text))
 
@@ -203,7 +210,7 @@ deu <- deu %>%
 ```
 
 
-add more variables for further analysis
+Then, we add more variables for further analysis, namely the page traffic per politician, the aggregated number of edits per politician and the number of links contained in each politician's text.
 ```{r}
 #only keep oldest session if there are several sessions for one person and sum up service time
 deu_political <- deu_political %>%
@@ -244,6 +251,7 @@ deu <- left_join(deu, total_edits_per_politician, by = "pageid")
 
 ```
 
+Next, columns for the total length of service are created in the deu dataframe by merging the information from the political dataframe of the legislatoR package. Same goes for the traffic data. Further, the birthyear of each politician is extracted and added as a variable and important offices are marked in a variable, applying the check office function from above.
 ```{r}
 
 deu_political$pageid <- as.integer(deu_political$pageid)
@@ -252,19 +260,21 @@ total_traffic_per_politician$pageid <- as.integer(total_traffic_per_politician$p
 deu <- left_join(deu, select(total_traffic_per_politician, pageid, total_traffic), by = "pageid")
 
 deu$birthyear <- substr(deu$birth, 1, 4)
-
-
-```
-
-
-prepare matched data
-```{r}
 deu$birthyear <- as.numeric(as.character(deu$birthyear))
 
 
 
 #new variable to indicate if politician had an important office
 deu$important_office <- sapply(deu$wikidataid, check_office, offices_dataset = deu_office)
+
+
+
+```
+
+### Matching procedure 
+
+In the next step, the data is matched on the follwoing variables: birthyear, total_service, total_traffic, party, important_office, session in order to make it more comparable for the further analysis
+```{r}
 
 
 deu <- deu[complete.cases(deu$sex), ]
@@ -284,11 +294,12 @@ matched_data$sex <- ifelse(matched_data$sex == 0, "male", "female")
 
 ```
 
+### Save the clean data
 
-save cleaned and matched data
+Now, the data is ready to be used for the analysis and is saved for the next script
 ```{r}
-write.csv(deu, file = "data/clean/deu.csv", row.names = FALSE)
-write.csv(matched_data, file = "data/clean/matched_data.csv", row.names = FALSE)
+# write.csv(deu, file = "data/clean/deu.csv", row.names = FALSE)
+# write.csv(matched_data, file = "data/clean/matched_data.csv", row.names = FALSE)
 
 ```
 

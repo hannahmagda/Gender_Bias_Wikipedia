@@ -1,12 +1,13 @@
 ---
-title: "pmi_visualisation"
+title: "PMI figures and tables"
 author: "Hannah Schweren"
 date: "2024-03-27"
 output: html_document
 ---
-Skript to create plots and tables to present the results of the Pointwise Mutual Information. The results can be visualized as bar plots or as tables, which is more useful for the bigger Subgroups of interest like Party comparisons.
+Skript to create figures and tables to present the results of the Pointwise Mutual Information analysis. The results can be visualized as bar plots or as tables, the ladder is more useful for the bigger subgroups of interest like Party comparisons.
 
-Load required packages
+### Necessary packages
+
 ```{r message=FALSE, warning=FALSE}
 library(ggplot2)
 library(dplyr)
@@ -18,7 +19,9 @@ library(dplyr)
 library(tidyr)
 ```
 
-Load required annotated data
+### load the annotaded data
+the PMI lists were created in the previous script and annotated in excel. Now we can load these annotaded lists to observe the share of categories (Family, Gender, Relatioonship and Other) for all subgroups of interest
+
 ```{r}
 
 #matched and unmatched data
@@ -140,10 +143,12 @@ third_cohort_career_male_cat <- read.csv(here("data", "annotated_data", "third_c
 
 ```
 
+### Necesssary functions
 
-
-Create plots to visualise the pmi results
 ```{r}
+
+# function to create a barplot of the categories assigned
+
 pmi_plot <- function(df_female, df_male) {
   # combine male and female annotated data and add column indicating the gender 
   df_female$Gender <- 'female'
@@ -161,7 +166,7 @@ pmi_plot <- function(df_female, df_male) {
   contingency <- table(combined_df$Gender, combined_df$category)
   fisher_test_result <- fisher.test(contingency)
   
-  # create a label for the P-Value
+  # add stars according to significance for the P-Value
   p_value_label <- ifelse(fisher_test_result$p.value < 0.001, "***",
                         ifelse(fisher_test_result$p.value < 0.01, "**",
                                ifelse(fisher_test_result$p.value < 0.05, "*",
@@ -186,12 +191,12 @@ pmi_plot <- function(df_female, df_male) {
 
   return(p)
 }
+```
 
+### PMI results as barplots
 
-
-
-
-
+Create plots to visualise the pmi results by applying the function "pmi_plot" to the annotated data
+```{r}
 
 #apply the function to my unmatched and matched data
 deu_life <- pmi_plot(deu_life_female_cat, deu_life_male_cat)
@@ -206,11 +211,7 @@ deu_life <- deu_life + theme(axis.title.y = element_blank(), axis.text.y = eleme
 matched_career <- matched_career + theme(legend.position = "none")
 matched_life <- matched_life + theme(axis.title.y = element_blank(), axis.text.y = element_blank(), axis.ticks.y = element_blank())
 
-#check plot output
-deu_life
-deu_career
-matched_life
-matched_career
+
 
 #save the plots
 ggsave(here("visualisations", "deu_life_pmi.pdf"), plot = deu_life, width = 8, height = 6, units = "in", dpi = 600)
@@ -218,9 +219,17 @@ ggsave(here("visualisations", "deu_career_pmi.pdf"), plot = deu_career, width = 
 ggsave(here("visualisations", "matched_life_pmi.pdf"), plot = matched_life, width = 8, height = 6, units = "in", dpi = 600)
 ggsave(here("visualisations", "matched_career_pmi.pdf"), plot = matched_career, width = 8, height = 6, units = "in", dpi = 600)
 
+#show plot output
+deu_life
+deu_career
+matched_life
+matched_career
 ```
 
-create a table to present pmi results for the matched/unmatched data
+
+### PMI results as tables
+
+This code creates tables for the shares of categories for different subgroups
 ```{r}
 
   # add gender coloumn and Subgroup coloumn to identify the data in the table - for the life subsection data
@@ -278,7 +287,7 @@ df_final <- df_wide %>%
     )
   )
 
-df_final %>%
+df_final <- df_final %>%
   select(Subgroup, `P-Value`, Gender, F, R, G, O) %>%
   arrange(Subgroup, Gender) %>%
   kable("html", escape = FALSE) %>% 
@@ -298,7 +307,7 @@ df_final
 
 
 
-Same procedure for each of the Party Subgroups, first for the career subsection
+Table for party subgroups, career subsection
 ```{r}
 afd_career_female_cat$Gender <- 'female'
 afd_career_male_cat$Gender <- 'male'
@@ -390,7 +399,7 @@ save_kable(df_final, file = here("visualisations", "pmi_Party_career.png"))
 df_final
 ```
 
-and second for the life subsections
+Table for party subgroups, life subsection
 ```{r}
 afd_life_female_cat$Gender <- 'female'
 afd_life_male_cat$Gender <- 'male'
@@ -480,7 +489,7 @@ save_kable(df_final, file = here("visualisations", "pmi_Party_life.png"))
 df_final
 ```
 
-The same code applied to the old and new version of the wikipedia texts, first for the life subsections
+Table for old texts, life subsection
 ```{r}
 matched_new_life_female_cat$Gender <- 'female'
 matched_new_life_male_cat$Gender <- 'male'
@@ -544,7 +553,7 @@ df_final
 
 ```
 
-and second for the career subsections
+Table for old texts, career subsection
 ```{r}
 matched_new_career_female_cat$Gender <- 'female'
 matched_new_career_male_cat$Gender <- 'male'
@@ -609,7 +618,7 @@ df_final
 ```
 
 
-The same code applied to the different age cohorts, first for the life subsections
+Table for age subgroups, life subsection
 ```{r}
 first_cohort_life_female_cat$Gender <- 'female'
 first_cohort_life_male_cat$Gender <- 'male'
@@ -678,7 +687,7 @@ df_final
 ```
 
 
-second for the career section
+Table for age subgroups, life subsection
 ```{r}
 first_cohort_career_female_cat$Gender <- 'female'
 first_cohort_career_male_cat$Gender <- 'male'
@@ -748,7 +757,7 @@ df_final
 
 ```
 
-sensitivity analysis career section
+table for sensitivity analysis, career section
 ```{r}
 S_deu_career_female_cat$Gender <- 'female'
 S_deu_career_male_cat$Gender <- 'male'
@@ -840,7 +849,7 @@ df_final
 ```
 
 
-sensitivity analysis life section
+table for sensitivity analysis, career section
 ```{r}
 S_deu_life_female_cat$Gender <- 'female'
 S_deu_life_male_cat$Gender <- 'male'
