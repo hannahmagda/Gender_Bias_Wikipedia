@@ -5,8 +5,7 @@ date: "2024-03-15"
 output: html_document
 ---
 
-
-This script provides the code for cleaning the data and thereby preparing it for the further analysis. Also, it includes code for the matching procedure of the data. This script outputs the two datasets used for the analysis: "Deu", containing the whole cleaned data for all German politicians and "matched_data". the dataset containing the matched body of politicians.
+This script provides the code for cleaning the data and thereby preparing it for the further analysis. Also, it includes the code for the matching strategy to make the data comparable. This script outputs the two data sets used for the analysis: "Deu", containing the whole cleaned data for all German politicians and "matched_data", the dataset containing the matched body of politician's articles.
 
 ### Necessary packages
 ```{r message=FALSE, warning=FALSE}
@@ -42,21 +41,18 @@ The following code provides all the functions used in this script to clean the d
 
 clean_data <- function(df) {
   initial_rows <- nrow(df)
-  
-  # Remove CSS-like structures
-  #df$plain_text <- str_remove_all(df$plain_text, "\\..*?\\{.*?\\}")
 
   # Initialize counters for removal reasons
-  removal_reason_redirect <- sum(grepl("^(Redirect to:|Weiterleitung nach:|Rediriger vers:|Redirige a:|Přesměrování na:)", df$plain_text, ignore.case = TRUE))
-  removal_reason_refering_page <- sum(grepl("may refer to:|ist der Name folgender Personen:|Cette page d'homonymie répertorie différentes personnes|může být:", df$plain_text, ignore.case = TRUE))
-  removal_reason_not_found <- sum(grepl("^(Error fetching content for page:|No Wikipedia page name provided or missing|Es wurde kein Wikipedia-Seitenname angegeben)", df$plain_text, ignore.case = TRUE))
+  removal_reason_redirect <- sum(grepl("Weiterleitung nach:)", df$plain_text, ignore.case = TRUE))
+  removal_reason_refering_page <- sum(grepl("ist der Name folgender Personen:", df$plain_text, ignore.case = TRUE))
+  removal_reason_not_found <- sum(grepl("^(Es wurde kein Wikipedia-Seitenname angegeben)", df$plain_text, ignore.case = TRUE))
   
   
   # Filter rows based on conditions
   df <- df %>%
-    filter(!grepl("^(Redirect to:|Weiterleitung nach:|Rediriger vers:|Redirige a:|Přesměrování na:)", plain_text, ignore.case = TRUE) &
-             !grepl("may refer to:|ist der Name folgender Personen:|Cette page d'homonymie répertorie différentes personnes|může být:", plain_text, ignore.case = TRUE) &
-             !grepl("Error fetching content for page:|No Wikipedia page name provided or missing|Es wurde kein Wikipedia-Seitenname angegeben", plain_text, ignore.case = TRUE))
+    filter(!grepl("^(Weiterleitung nach:|Rediriger vers:)", plain_text, ignore.case = TRUE) &
+             !grepl("ist der Name folgender Personen:", plain_text, ignore.case = TRUE) &
+             !grepl("Es wurde kein Wikipedia-Seitenname angegeben", plain_text, ignore.case = TRUE))
   
   # Calculate the number of rows removed
   rows_removed <- initial_rows - nrow(df)
@@ -77,7 +73,7 @@ clean_data <- function(df) {
 
 ###################################################################################################
 
-# function to extract "life" or "party/career" section
+# function to extract "life" or "party/career" section, depending on number inputed for "section"
 extract_content <- function(text, section = 1) {
   tryCatch({
     parts <- str_split(text, "\\[Bearbeiten \\| Quelltext bearbeiten\\]")[[1]]
@@ -99,7 +95,6 @@ extract_content <- function(text, section = 1) {
     NA 
   })
 }
-
 
 #############################################################################################################
 
@@ -165,7 +160,7 @@ deu <- clean_data(deu_text)
 ```
 
 
-Next, we add the variables for the extracted life and career sections for the old and current data
+Next, we add the variables containing the extracted life and career sections for the old and current data
 ```{r}
 
 #extract "life" section
@@ -251,20 +246,21 @@ deu <- left_join(deu, total_edits_per_politician, by = "pageid")
 
 ```
 
-Next, columns for the total length of service are created in the deu dataframe by merging the information from the political dataframe of the legislatoR package. Same goes for the traffic data. Further, the birthyear of each politician is extracted and added as a variable and important offices are marked in a variable, applying the check office function from above.
+Next, columns for the total length of service are created in the deu dataframe by merging the information from the political dataframe of the legislatoR package. Same goes for the traffic data. Further, the year of birth of each politician is extracted and added as a variable and important offices are marked in a categorical variable, applying the "check office" function from above.
 ```{r}
 
+#add total duration in office and page traffic to the dataset
 deu_political$pageid <- as.integer(deu_political$pageid)
 deu <- left_join(deu, select(deu_political, pageid, session, party, total_service), by = "pageid")
 total_traffic_per_politician$pageid <- as.integer(total_traffic_per_politician$pageid)
 deu <- left_join(deu, select(total_traffic_per_politician, pageid, total_traffic), by = "pageid")
 
+#extract the year of birth
 deu$birthyear <- substr(deu$birth, 1, 4)
 deu$birthyear <- as.numeric(as.character(deu$birthyear))
 
 
-
-#new variable to indicate if politician had an important office
+#add variable to indicate if politician had an important office
 deu$important_office <- sapply(deu$wikidataid, check_office, offices_dataset = deu_office)
 
 
@@ -273,13 +269,16 @@ deu$important_office <- sapply(deu$wikidataid, check_office, offices_dataset = d
 
 ### Matching procedure 
 
-In the next step, the data is matched on the follwoing variables: birthyear, total_service, total_traffic, party, important_office, session in order to make it more comparable for the further analysis
+In the next step, the data is matched on the following variables: birthyear, total_service, total_traffic, party, important_office, session, in order to make it more comparable for the further analysis
 ```{r}
+#conduct the matching stratgey to my data
 
-
+# Remove rows with missing values in the 'sex' column
 deu <- deu[complete.cases(deu$sex), ]
+# Convert 'sex' column to binary (male = 0, female = 1)
 deu$sex <- ifelse(deu$sex == "male", 0, 1)
 
+# Perform matching
 match_obj <- matchit(sex ~ birthyear + total_service + total_traffic + party + important_office + session,
                      data = deu, method = "nearest", distance = "logit",
                      exact = "session", # Exaktes Matching auf 'session'
@@ -288,6 +287,7 @@ match_obj <- matchit(sex ~ birthyear + total_service + total_traffic + party + i
 #get matched data
 matched_data <- match.data(match_obj)
 
+# Convert 'sex' back to categorical labels (male, female)
 deu$sex <- ifelse(deu$sex == 0, "male", "female")
 matched_data$sex <- ifelse(matched_data$sex == 0, "male", "female")
 

@@ -4,7 +4,7 @@ author: "Hannah Schweren"
 date: "2024-03-27"
 output: html_document
 ---
-Skript to create figures and tables to present the results of the Pointwise Mutual Information analysis. The results can be visualized as bar plots or as tables, the ladder is more useful for the bigger subgroups of interest like Party comparisons.
+Script to create figures and tables to present the results of the Pointwise Mutual Information analysis. The results can be visualised as bar plots or as tables, the latter is more useful for the bigger subgroups of interest like Party comparisons.
 
 ### Necessary packages
 
@@ -20,7 +20,7 @@ library(tidyr)
 ```
 
 ### load the annotaded data
-the PMI lists were created in the previous script and annotated in excel. Now we can load these annotaded lists to observe the share of categories (Family, Gender, Relatioonship and Other) for all subgroups of interest
+the PMI lists were created in the previous script and annotated in excel. Now we can load these annotated lists to observe the share of categories (Family, Gender, Relatioonship and Other) for all subgroups of interest
 
 ```{r}
 
@@ -162,7 +162,7 @@ pmi_plot <- function(df_female, df_male) {
     group_by(Gender) %>%
     mutate(proportion = count / sum(count))
   
-  # conduct fishers's test in order to include the P-Value to indicate (in-)significance of the results
+  # conduct fishers's test in order to include the P-Value to indicate significance of the results
   contingency <- table(combined_df$Gender, combined_df$category)
   fisher_test_result <- fisher.test(contingency)
   
@@ -187,7 +187,9 @@ pmi_plot <- function(df_female, df_male) {
           axis.title.x = element_text(size = 16, face = "bold"), 
           axis.title.y = element_text(size = 16, face = "bold"),
           axis.text.x = element_text(size = 16),
-          axis.text.y = element_text(size = 13))
+          axis.text.y = element_text(size = 13),
+          legend.text = element_text(size = 14), 
+          legend.title = element_text(size = 14))
 
   return(p)
 }

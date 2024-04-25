@@ -5,7 +5,7 @@ date: "2024-03-15"
 output: html_document
 ---
 
-This script provides the code for my PMI analyis. First, a pipeline is developped to turn the text data into vocabulary and then a PMI analyis is applied to this vocabulary for each subgroup of data of interest (unmatched/matched/party/age/old subgroups). The code for the PMI analysis is based on code written by Eduardo Graells-Garrido and can be found in the following repository: https://github.com/clauwag/WikipediaGenderInequality/tree/master/notebooks
+This script provides the code for the analyis of word use with Pointwise mutual information. First, a pipeline is created to turn the text data into vocabulary and then a PMI analyis is applied to this vocabulary for each subgroup of data of interest (unmatched/matched/party/age/old subgroups). The code for the PMI analysis is based on code written by Eduardo Graells-Garrido and can be found in the following repository: https://github.com/clauwag/WikipediaGenderInequality/tree/master/notebooks
  
  
 ### Necessary packages
@@ -41,7 +41,7 @@ matched_data <- read.csv(("data/clean/matched_data.csv"))
 
 ```{r}
 
-#first, the data is prepared to be in the necessary shpe for the PMI analyis by the following function
+#first, the data is prepared to be in the necessary shape for the PMI analyis by the following function
 
 prepare_vocabulary <- function(data_frame, text_column) {
   #create a copy to not change the original data
@@ -58,7 +58,7 @@ prepare_vocabulary <- function(data_frame, text_column) {
     summarise(text = paste(!!sym(text_column), collapse = " ")) %>%
     ungroup()
   
-  # Create the vocabulary
+  # Create a corpus with the of gender as identifier
   corpus_created <- corpus(summary_df, docid_field = "sex")
   
   return(corpus_created)
@@ -66,7 +66,7 @@ prepare_vocabulary <- function(data_frame, text_column) {
 
 #############################################################################################################################################################
 
-# define words that mess with the analyis, starting with gender senstitive occupation labels
+# define words that disturb the analysis, starting with gender sensitive occupation labels
 
 gender_neutral_replacements <- c(
   "Politikerin" = "Politiker",
@@ -178,7 +178,7 @@ gender_neutral_replacements <- c(
 first_words <- vapply(strsplit(deu$plain_text, "\\s+"), function(x) gsub("[,;:.!?]+$", "", x[1]), character(1))
 second_words <- vapply(strsplit(deu$plain_text, "\\s+"), function(x) ifelse(length(x) > 1, gsub("[,;:.!?]+$", "", x[2]), ""), character(1))
 
-#extract mobths
+#extract months
 months <- c("januar", "februar", "märz", "april", "mai", "juni", "juli", "august", "september", "oktober", "november", "dezember", "eins", "zwei", "drei", "vier", "fünf", "sechs", "sieben", "acht", "neun", "zehn", "1949–2002", "3-598-23782-0")
 
 #extract cities
@@ -193,7 +193,7 @@ cities <- c("berlin", "heidelberg", "hamburg", "münchen", "köln", "frankfurt",
             "hagen", "hamm", "saarbrücken", "mülheim an der ruhr", "potsdam", 
             "ludwigshafen", "oldenburg", "leverkusen", "osnabrück", "bonn")
 
-#extract stopwords "Stoppwörter der Deutschen Rechtssprache (SW-DE-RS)" (Fobbe, 2020)
+#extract stopwords "Stoppwörter der Deutschen Rechtssprache" (Fobbe, 2020)
 custom.stopwords <- read.csv("data/raw/SW-DE-RS_v1-0-0_Datensatz.csv")
 custom.stopwords <- unlist(custom.stopwords)
 custom.stopwords <- unname(custom.stopwords)
@@ -209,8 +209,8 @@ words_to_remove <- unique(c(first_words, second_words, months, cities, stopwords
 
 process_corpus <- function(corpus, gender_neutral_replacements, words_to_remove) {
   
-  # Tokenizing the corpus and removing/replacing data that messes with the analyis
-  # puntuation, capital letters, numbers etc. are removed
+  # Tokenizing the corpus and removing/replacing data that disturbs the analysis
+  # punctuation, capital letters, numbers etc. are removed
   tokens <- tokens(corpus, remove_punct = TRUE, remove_numbers = TRUE, remove_symbols = TRUE) %>%
     tokens_tolower() %>%
     tokens_replace(pattern = names(gender_neutral_replacements), replacement = gender_neutral_replacements, case_insensitive = TRUE) %>%
@@ -300,7 +300,7 @@ calculate_pmi_and_filter <- function(corpus_transposed, corpus_name, min_p = 0.0
 
 In order to look into age and party groups, we need to define those groups. The following code serves this purpose
 ```{r}
-# cretae three age cohorts
+# create three age cohorts
 
 cohort_assignment <- function(year) {
   if(year < 1949) {
@@ -313,13 +313,13 @@ cohort_assignment <- function(year) {
 }
 
 
-# apply the function to the coumn birthyear
+# apply the function to the column birth year
 cohort_vector <- sapply(matched_data$birthyear, cohort_assignment)
 
 # split the data based on the defined cohorts
 list_of_dfs <- split(matched_data, cohort_vector)
 
-# create one dataframe per cohort to conduct the PMI analyis for each cohort
+# create one dataframe per cohort to conduct the PMI analysis for each cohort
 cohort1 <- list_of_dfs$cohort1
 cohort2 <- list_of_dfs$cohort2
 cohort3 <- list_of_dfs$cohort3
@@ -369,15 +369,14 @@ In the following code, the functions to output the PMI lists are applied to all 
 
 # #whole sample, life section########################################################################################
 # # Step 1: 
-# corpus <- prepare_vocabulary(deu, "extracted_text")
-# 
-# # Step 2: 
-# corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
-# 
-# # Step 3: 
-# results <- calculate_pmi_and_filter(corpus_transposed, "deu_life")
-#
-# #whole 
+corpus <- prepare_vocabulary(deu, "extracted_text")
+
+# Step 2:
+corpus_transposed <- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
+
+# Step 3:
+results <- calculate_pmi_and_filter(corpus_transposed, "deu_life")
+
 
 # #whole sample career/party section########################################################################################
 # # Step 1: 

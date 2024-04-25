@@ -358,11 +358,11 @@ display: none;
 
 
 <p>This script provides the code for cleaning the data and thereby
-preparing it for the further analysis. Also, it includes code for the
-matching procedure of the data. This script outputs the two datasets
-used for the analysis: “Deu”, containing the whole cleaned data for all
-German politicians and “matched_data”. the dataset containing the
-matched body of politicians.</p>
+preparing it for the further analysis. Also, it includes the code for
+the matching strategy to make the data comparable. This script outputs
+the two data sets used for the analysis: “Deu”, containing the whole
+cleaned data for all German politicians and “matched_data”, the dataset
+containing the matched body of politician’s articles.</p>
 <div id="necessary-packages" class="section level3">
 <h3>Necessary packages</h3>
 <pre class="r"><code>library(legislatoR)
@@ -393,21 +393,18 @@ holds an important office.</p>
 
 clean_data &lt;- function(df) {
   initial_rows &lt;- nrow(df)
-  
-  # Remove CSS-like structures
-  #df$plain_text &lt;- str_remove_all(df$plain_text, &quot;\\..*?\\{.*?\\}&quot;)
 
   # Initialize counters for removal reasons
-  removal_reason_redirect &lt;- sum(grepl(&quot;^(Redirect to:|Weiterleitung nach:|Rediriger vers:|Redirige a:|Přesměrování na:)&quot;, df$plain_text, ignore.case = TRUE))
-  removal_reason_refering_page &lt;- sum(grepl(&quot;may refer to:|ist der Name folgender Personen:|Cette page d&#39;homonymie répertorie différentes personnes|může být:&quot;, df$plain_text, ignore.case = TRUE))
-  removal_reason_not_found &lt;- sum(grepl(&quot;^(Error fetching content for page:|No Wikipedia page name provided or missing|Es wurde kein Wikipedia-Seitenname angegeben)&quot;, df$plain_text, ignore.case = TRUE))
+  removal_reason_redirect &lt;- sum(grepl(&quot;Weiterleitung nach:)&quot;, df$plain_text, ignore.case = TRUE))
+  removal_reason_refering_page &lt;- sum(grepl(&quot;ist der Name folgender Personen:&quot;, df$plain_text, ignore.case = TRUE))
+  removal_reason_not_found &lt;- sum(grepl(&quot;^(Es wurde kein Wikipedia-Seitenname angegeben)&quot;, df$plain_text, ignore.case = TRUE))
   
   
   # Filter rows based on conditions
   df &lt;- df %&gt;%
-    filter(!grepl(&quot;^(Redirect to:|Weiterleitung nach:|Rediriger vers:|Redirige a:|Přesměrování na:)&quot;, plain_text, ignore.case = TRUE) &amp;
-             !grepl(&quot;may refer to:|ist der Name folgender Personen:|Cette page d&#39;homonymie répertorie différentes personnes|může být:&quot;, plain_text, ignore.case = TRUE) &amp;
-             !grepl(&quot;Error fetching content for page:|No Wikipedia page name provided or missing|Es wurde kein Wikipedia-Seitenname angegeben&quot;, plain_text, ignore.case = TRUE))
+    filter(!grepl(&quot;^(Weiterleitung nach:|Rediriger vers:)&quot;, plain_text, ignore.case = TRUE) &amp;
+             !grepl(&quot;ist der Name folgender Personen:&quot;, plain_text, ignore.case = TRUE) &amp;
+             !grepl(&quot;Es wurde kein Wikipedia-Seitenname angegeben&quot;, plain_text, ignore.case = TRUE))
   
   # Calculate the number of rows removed
   rows_removed &lt;- initial_rows - nrow(df)
@@ -428,7 +425,7 @@ clean_data &lt;- function(df) {
 
 ###################################################################################################
 
-# function to extract &quot;life&quot; or &quot;party/career&quot; section
+# function to extract &quot;life&quot; or &quot;party/career&quot; section, depending on number inputed for &quot;section&quot;
 extract_content &lt;- function(text, section = 1) {
   tryCatch({
     parts &lt;- str_split(text, &quot;\\[Bearbeiten \\| Quelltext bearbeiten\\]&quot;)[[1]]
@@ -450,7 +447,6 @@ extract_content &lt;- function(text, section = 1) {
     NA 
   })
 }
-
 
 #############################################################################################################
 
@@ -513,12 +509,12 @@ only meaningful observations</p>
 <pre class="r"><code>#clean the data
 deu &lt;- clean_data(deu_text)</code></pre>
 <pre><code>## Removal reasons:
-##   - Redirect: 16 
+##   - Redirect: 0 
 ##   - Reference Page: 67 
-##   - Not Found/no name_provided: 25 
-## Cleaned data: Removed 108 rows.</code></pre>
-<p>Next, we add the variables for the extracted life and career sections
-for the old and current data</p>
+##   - Not Found/no name_provided: 0 
+## Cleaned data: Removed 83 rows.</code></pre>
+<p>Next, we add the variables containing the extracted life and career
+sections for the old and current data</p>
 <pre class="r"><code>#extract &quot;life&quot; section
 deu &lt;- deu %&gt;%
   mutate(extracted_text = map_chr(plain_text, ~possibly(extract_content, otherwise = NA_character_)(.x, section = 2)))
@@ -593,31 +589,38 @@ total_edits_per_politician$pageid &lt;- as.integer(total_edits_per_politician$pa
 deu &lt;- left_join(deu, total_edits_per_politician, by = &quot;pageid&quot;)</code></pre>
 <p>Next, columns for the total length of service are created in the deu
 dataframe by merging the information from the political dataframe of the
-legislatoR package. Same goes for the traffic data. Further, the
-birthyear of each politician is extracted and added as a variable and
-important offices are marked in a variable, applying the check office
-function from above.</p>
-<pre class="r"><code>deu_political$pageid &lt;- as.integer(deu_political$pageid)
+legislatoR package. Same goes for the traffic data. Further, the year of
+birth of each politician is extracted and added as a variable and
+important offices are marked in a categorical variable, applying the
+“check office” function from above.</p>
+<pre class="r"><code>#add total duration in office and page traffic to the dataset
+deu_political$pageid &lt;- as.integer(deu_political$pageid)
 deu &lt;- left_join(deu, select(deu_political, pageid, session, party, total_service), by = &quot;pageid&quot;)
 total_traffic_per_politician$pageid &lt;- as.integer(total_traffic_per_politician$pageid)
 deu &lt;- left_join(deu, select(total_traffic_per_politician, pageid, total_traffic), by = &quot;pageid&quot;)
 
+#extract the year of birth
 deu$birthyear &lt;- substr(deu$birth, 1, 4)
 deu$birthyear &lt;- as.numeric(as.character(deu$birthyear))
 
 
-
-#new variable to indicate if politician had an important office
+#add variable to indicate if politician had an important office
 deu$important_office &lt;- sapply(deu$wikidataid, check_office, offices_dataset = deu_office)</code></pre>
 </div>
 <div id="matching-procedure" class="section level3">
 <h3>Matching procedure</h3>
-<p>In the next step, the data is matched on the follwoing variables:
+<p>In the next step, the data is matched on the following variables:
 birthyear, total_service, total_traffic, party, important_office,
-session in order to make it more comparable for the further analysis</p>
-<pre class="r"><code>deu &lt;- deu[complete.cases(deu$sex), ]
+session, in order to make it more comparable for the further
+analysis</p>
+<pre class="r"><code>#conduct the matching stratgey to my data
+
+# Remove rows with missing values in the &#39;sex&#39; column
+deu &lt;- deu[complete.cases(deu$sex), ]
+# Convert &#39;sex&#39; column to binary (male = 0, female = 1)
 deu$sex &lt;- ifelse(deu$sex == &quot;male&quot;, 0, 1)
 
+# Perform matching
 match_obj &lt;- matchit(sex ~ birthyear + total_service + total_traffic + party + important_office + session,
                      data = deu, method = &quot;nearest&quot;, distance = &quot;logit&quot;,
                      exact = &quot;session&quot;, # Exaktes Matching auf &#39;session&#39;
@@ -626,6 +629,7 @@ match_obj &lt;- matchit(sex ~ birthyear + total_service + total_traffic + party 
 #get matched data
 matched_data &lt;- match.data(match_obj)
 
+# Convert &#39;sex&#39; back to categorical labels (male, female)
 deu$sex &lt;- ifelse(deu$sex == 0, &quot;male&quot;, &quot;female&quot;)
 matched_data$sex &lt;- ifelse(matched_data$sex == 0, &quot;male&quot;, &quot;female&quot;)</code></pre>
 </div>

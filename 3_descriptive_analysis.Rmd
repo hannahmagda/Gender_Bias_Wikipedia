@@ -4,7 +4,7 @@ author: "Hannah Schweren"
 date: "2024-03-28"
 output: html_document
 ---
-This script provides code to analyse the descriptive indicators and output the results in boxplots and tables. The data contains some outliers due to a couple of famous politicians. Bevause of that, the mean values risk being distorted. Therefore, a logarithm transformation with base two is performed to make the mean a more robust indicator for comparison. I chose the log2 scale to improve visibility while also allowing for an intuitive interpretation of the results (an increase by one unit on the transformed scale corresponds to a doubling of the original value).
+This script provides code to analyse the descriptive indicators and output the results in boxplots and tables. The data contains some outliers due to a couple of famous politicians. DUe to these outliers, the mean values risk being distorted. Therefore, a logarithm transformation with base two is performed to make the mean a more robust indicator for comparison. I chose the log2 scale to improve visibility while also allowing for an intuitive interpretation of the results (an increase by one unit on the transformed scale corresponds to a doubling of the original value).
 
 ### necessary packages
 ```{r message=FALSE, warning=FALSE}
@@ -29,8 +29,6 @@ library(here)
 library(scales)
 library(corrplot)
 library(tibble)
-
-
 
 ```
 
@@ -121,6 +119,9 @@ calculate_statistics_log <- function(df) {
   return(results)
 }
 
+
+########################################################################################################
+
 # Function to generate and save a formatted table containing the descriptive indicators
 generate_table <- function(data, file_name) {
   # Function to format p-values with stars
@@ -142,7 +143,7 @@ generate_table <- function(data, file_name) {
   # Format P-Values using the custom function
   data$P_Value <- sapply(data$P_Value, combine_p_value_and_stars)
 
-  # Prepare the dataset for table creation, round digits
+  # Prepare the data set for table creation, round digits
   data <- data %>%
     select(everything()) %>%
     mutate(across(where(is.numeric), round, digits = 3))
@@ -162,18 +163,18 @@ generate_table <- function(data, file_name) {
 
 ### create boxplots
 
-The follwoing code creates boxplots for each descriptive feature, starting with the unmatched data
+The following code creates boxplots for each descriptive feature, starting with the unmatched data
 
 1.1. Text length
 ```{r}
 
-#Put NAs for cases where the section extraction did not work out properly, text length is <60 and thus exclude them in this analyis
+#Put NAs for cases where the section extraction did not work out properly. Where text length is <60, I exclude the observation in this analyis
 descriptive_data_deu <- deu
 descriptive_data_deu$text_length_live[descriptive_data_deu$text_length_live < 60] <- NA
 descriptive_data_deu$text_length_career[descriptive_data_deu$text_length_career < 60] <- NA
 
 
-#conduct the logarythmic transformation with basis 2 for the t-test
+#conduct the logarithmic transformation with basis 2 for the t-test
 descriptive_data_deu$text_length_log2 <- log2(descriptive_data_deu$text_length)
 
 # calculate the p-value
@@ -201,13 +202,11 @@ deu_text_length <- ggplot(descriptive_data_deu, aes(x = factor(sex, levels = c("
   ) +
   guides(fill = FALSE)+ 
   scale_y_continuous(trans = 'log2') # logarithmic transformation of the data but add the original scale in order to make it better interpretable
-  
-  
-deu_text_length
 
 #save the plot
 ggsave(here("visualisations", "deu_boxplot1.pdf"), plot = deu_text_length, width = 5, height = 6, units = "in", dpi = 600)
 
+deu_text_length
 ```
 The same procedure follows for all indicators in the unmatched and matched data
 
@@ -222,7 +221,7 @@ t_test_result <- t.test(text_length_life_log2 ~ sex, data = descriptive_data_deu
 
 
 
-deu_text_length_life_2 <- ggplot(descriptive_data_deu, aes(x = factor(sex, levels = c("female", "male"), labels = c("Women", "Men")), y = text_length_live, fill = factor(sex, levels = c("female", "male")))) +
+deu_text_length_life <- ggplot(descriptive_data_deu, aes(x = factor(sex, levels = c("female", "male"), labels = c("Women", "Men")), y = text_length_live, fill = factor(sex, levels = c("female", "male")))) +
   geom_boxplot() +
   scale_fill_manual(values = c("female" = "#f4a582", "male" = "#92c5de")) + 
   labs(title = paste("Two-sample t-test, P-Value = ", round(t_test_result$p.value, 3), add_stars(t_test_result$p.value), sep = ""),
@@ -245,11 +244,10 @@ deu_text_length_life_2 <- ggplot(descriptive_data_deu, aes(x = factor(sex, level
   guides(fill = FALSE)+ 
   scale_y_continuous(trans = 'log2')
 
-deu_text_length_life_2
 
+ggsave(here("visualisations", "deu_boxplot2.pdf"), plot = deu_text_length_life, width = 5, height = 6, units = "in", dpi = 600)
 
-ggsave(here("visualisations", "deu_boxplot2.pdf"), plot = deu_text_length_life_2, width = 5, height = 6, units = "in", dpi = 600)
-
+deu_text_length_life
 ```
 
 1.3. Text length career section
@@ -260,7 +258,7 @@ t_test_result <- t.test(text_length_career_log2 ~ sex, data = descriptive_data_d
 
 
 
-deu_text_length_career_2 <- ggplot(descriptive_data_deu, aes(x = factor(sex, levels = c("female", "male"), labels = c("Women", "Men")), y = text_length_career, fill = factor(sex, levels = c("female", "male")))) +
+deu_text_length_career <- ggplot(descriptive_data_deu, aes(x = factor(sex, levels = c("female", "male"), labels = c("Women", "Men")), y = text_length_career, fill = factor(sex, levels = c("female", "male")))) +
   geom_boxplot() +
     scale_fill_manual(values = c("female" = "#f4a582", "male" = "#92c5de")) + 
   labs(title = paste("Two-sample t-test, P-Value = ", round(t_test_result$p.value, 3), add_stars(t_test_result$p.value), sep = ""),
@@ -282,10 +280,9 @@ deu_text_length_career_2 <- ggplot(descriptive_data_deu, aes(x = factor(sex, lev
   guides(fill = FALSE)+ 
   scale_y_continuous(trans = 'log2')
 
+ggsave(here("visualisations", "deu_boxplot3.pdf"), plot = deu_text_length_career, width = 5, height = 6, units = "in", dpi = 600)
 
-deu_text_length_career_2
-
-ggsave(here("visualisations", "deu_boxplot3.pdf"), plot = deu_text_length_career_2, width = 5, height = 6, units = "in", dpi = 600)
+deu_text_length_career
 ```
 
 1.4. Number of links
@@ -297,7 +294,7 @@ t_test_result <- t.test(number_of_links_log2 ~ sex, data = deu)
 
 
 
-deu_links_2 <- ggplot(deu, aes(x = factor(sex, levels = c("female", "male"), labels = c("Women", "Men")), y = number_of_links, fill = factor(sex, levels = c("female", "male")))) +
+deu_links <- ggplot(deu, aes(x = factor(sex, levels = c("female", "male"), labels = c("Women", "Men")), y = number_of_links, fill = factor(sex, levels = c("female", "male")))) +
   geom_boxplot() +
     scale_fill_manual(values = c("female" = "#f4a582", "male" = "#92c5de")) + 
   labs(title = paste("Two-sample t-test, P-Value = ", round(t_test_result$p.value, 3), add_stars(t_test_result$p.value), sep = ""),
@@ -319,9 +316,9 @@ deu_links_2 <- ggplot(deu, aes(x = factor(sex, levels = c("female", "male"), lab
   guides(fill = FALSE) + 
   scale_y_continuous(trans = 'log2')
 
-deu_links_2
+ggsave(here("visualisations", "deu_boxplot4.pdf"), plot = deu_links, width = 5, height = 6, units = "in", dpi = 600)
 
-ggsave(here("visualisations", "deu_boxplot4.pdf"), plot = deu_links_2, width = 5, height = 6, units = "in", dpi = 600)
+deu_links
 ```
 
 1.5. Number of page edits
@@ -334,7 +331,7 @@ t_test_result <- t.test(total_edits_log2 ~ sex, data = deu)
 
 
 
-deu_edits_2 <- ggplot(deu, aes(x = factor(sex, levels = c("female", "male"), labels = c("Women", "Men")), y = total_edits, fill = factor(sex, levels = c("female", "male")))) +
+deu_edits <- ggplot(deu, aes(x = factor(sex, levels = c("female", "male"), labels = c("Women", "Men")), y = total_edits, fill = factor(sex, levels = c("female", "male")))) +
   geom_boxplot() +
     scale_fill_manual(values = c("female" = "#f4a582", "male" = "#92c5de")) + 
   labs(title = paste("Two-sample t-test, P-Value = ", round(t_test_result$p.value, 3), add_stars(t_test_result$p.value), sep = ""),
@@ -356,11 +353,9 @@ deu_edits_2 <- ggplot(deu, aes(x = factor(sex, levels = c("female", "male"), lab
   guides(fill = FALSE)+ 
   scale_y_continuous(trans = 'log2')
 
+ggsave(here("visualisations", "deu_boxplot5.pdf"), plot = deu_edits, width = 5, height = 6, units = "in", dpi = 600)
 
-deu_edits_2
-
-ggsave(here("visualisations", "deu_boxplot5.pdf"), plot = deu_edits_2, width = 5, height = 6, units = "in", dpi = 600)
-
+deu_edits
 ```
 
 
@@ -374,11 +369,11 @@ descriptive_data_matched$text_length_live[descriptive_data_matched$text_length_l
 descriptive_data_matched$text_length_career[descriptive_data_matched$text_length_career < 60] <- NA
 
 
-descriptive_data_matched$text_length_life_log2 <- log2(descriptive_data_matched$text_length_live)
+descriptive_data_matched$text_length_log2 <- log2(descriptive_data_matched$text_length)
 t_test_result <- t.test(text_length_log2 ~ sex, data = descriptive_data_matched)
 
 
-matched_data_text_length_2 <- ggplot(matched_data, aes(x = factor(sex, levels = c("female", "male"), labels = c("Women", "Men")), y = text_length, fill = factor(sex, levels = c("female", "male")))) +
+matched_data_text_length <- ggplot(matched_data, aes(x = factor(sex, levels = c("female", "male"), labels = c("Women", "Men")), y = text_length, fill = factor(sex, levels = c("female", "male")))) +
   geom_boxplot() +
     scale_fill_manual(values = c("female" = "#f4a582", "male" = "#92c5de")) + 
   labs(title = paste("Two-sample t-test, P-Value = ", round(t_test_result$p.value, 3), add_stars(t_test_result$p.value), sep = ""),
@@ -400,11 +395,9 @@ matched_data_text_length_2 <- ggplot(matched_data, aes(x = factor(sex, levels = 
   guides(fill = FALSE)+ 
   scale_y_continuous(trans = 'log2')
 
+ggsave(here("visualisations", "matched_data_boxplot1.pdf"), plot = matched_data_text_length, width = 5, height = 6, units = "in", dpi = 600)
 
-matched_data_text_length_2
-
-ggsave(here("visualisations", "matched_data_boxplot1.pdf"), plot = matched_data_text_length_2, width = 5, height = 6, units = "in", dpi = 600)
-
+matched_data_text_length
 ```
 
 2.2. Text length life section
@@ -416,7 +409,7 @@ t_test_result <- t.test(text_length_life_log2 ~ sex, data = descriptive_data_mat
 
 
 
-matched_text_length_life_2 <- ggplot(descriptive_data_matched, aes(x = factor(sex, levels = c("female", "male"), labels = c("Women", "Men")), y = text_length_live, fill = factor(sex, levels = c("female", "male")))) +
+matched_text_length_life <- ggplot(descriptive_data_matched, aes(x = factor(sex, levels = c("female", "male"), labels = c("Women", "Men")), y = text_length_live, fill = factor(sex, levels = c("female", "male")))) +
   geom_boxplot() +
     scale_fill_manual(values = c("female" = "#f4a582", "male" = "#92c5de")) + 
   labs(title = paste("Two-sample t-test, P-Value = ", round(t_test_result$p.value, 3), add_stars(t_test_result$p.value), sep = ""),
@@ -438,10 +431,9 @@ matched_text_length_life_2 <- ggplot(descriptive_data_matched, aes(x = factor(se
   guides(fill = FALSE)+ 
   scale_y_continuous(trans = 'log2')
 
-matched_text_length_life_2
+ggsave(here("visualisations", "matched_data_boxplot2.pdf"), plot = matched_text_length_life, width = 5, height = 6, units = "in", dpi = 600)
 
-
-ggsave(here("visualisations", "matched_data_boxplot2.pdf"), plot = matched_text_length_life_2, width = 5, height = 6, units = "in", dpi = 600)
+matched_text_length_life
 
 ```
 
@@ -452,7 +444,7 @@ descriptive_data_matched$text_length_career_log2 <- log2(descriptive_data_matche
 t_test_result <- t.test(text_length_career_log2 ~ sex, data = descriptive_data_matched, na.action = na.exclude)
 
 
-matched_text_length_career_2 <- ggplot(descriptive_data_matched, aes(x = factor(sex, levels = c("female", "male"), labels = c("Women", "Men")), y = text_length_career, fill = factor(sex, levels = c("female", "male")))) +
+matched_text_length_career <- ggplot(descriptive_data_matched, aes(x = factor(sex, levels = c("female", "male"), labels = c("Women", "Men")), y = text_length_career, fill = factor(sex, levels = c("female", "male")))) +
   geom_boxplot() +
     scale_fill_manual(values = c("female" = "#f4a582", "male" = "#92c5de")) + 
   labs(title = paste("Two-sample t-test, P-Value = ", round(t_test_result$p.value, 3), add_stars(t_test_result$p.value), sep = ""),
@@ -474,10 +466,10 @@ matched_text_length_career_2 <- ggplot(descriptive_data_matched, aes(x = factor(
   guides(fill = FALSE)+ 
   scale_y_continuous(trans = 'log2')
 
-matched_text_length_career_2
 
+ggsave(here("visualisations", "matched_data_boxplot3.pdf"), plot = matched_text_length_career, width = 5, height = 6, units = "in", dpi = 600)
 
-ggsave(here("visualisations", "matched_data_boxplot3.pdf"), plot = matched_text_length_career_2, width = 5, height = 6, units = "in", dpi = 600)
+matched_text_length_career
 ```
 
 2.4. Number of links
@@ -487,7 +479,7 @@ matched_data$number_of_links_log2 <- log2(matched_data$number_of_links)
 
 t_test_result <- t.test(number_of_links_log2 ~ sex, data = matched_data)
 
-matched_data_links_2 <- ggplot(matched_data, aes(x = factor(sex, levels = c("female", "male"), labels = c("Women", "Men")), y = number_of_links, fill = factor(sex, levels = c("female", "male")))) +
+matched_data_links <- ggplot(matched_data, aes(x = factor(sex, levels = c("female", "male"), labels = c("Women", "Men")), y = number_of_links, fill = factor(sex, levels = c("female", "male")))) +
   geom_boxplot() +
     scale_fill_manual(values = c("female" = "#f4a582", "male" = "#92c5de")) + 
   labs(title = paste("Two-sample t-test, P-Value = ", round(t_test_result$p.value, 3), add_stars(t_test_result$p.value), sep = ""),
@@ -509,10 +501,9 @@ matched_data_links_2 <- ggplot(matched_data, aes(x = factor(sex, levels = c("fem
   guides(fill = FALSE)+ 
   scale_y_continuous(trans = 'log2')
 
+ggsave(here("visualisations", "matched_data_boxplot4.pdf"), plot = matched_data_links, width = 5, height = 6, units = "in", dpi = 600)
 
-matched_data_links_2
-
-ggsave(here("visualisations", "matched_data_boxplot4.pdf"), plot = matched_data_links_2, width = 5, height = 6, units = "in", dpi = 600)
+matched_data_links
 ```
 
 2.5. Number of page edits
@@ -522,7 +513,7 @@ ggsave(here("visualisations", "matched_data_boxplot4.pdf"), plot = matched_data_
 t_test_result <- t.test(total_edits_log2 ~ sex, data = matched_data)
  
  
-matched_edits_2 <- ggplot(matched_data, aes(x = factor(sex, levels = c("female", "male"), labels = c("Women", "Men")), y = total_edits, fill = factor(sex, levels = c("female", "male")))) +
+matched_edits <- ggplot(matched_data, aes(x = factor(sex, levels = c("female", "male"), labels = c("Women", "Men")), y = total_edits, fill = factor(sex, levels = c("female", "male")))) +
   geom_boxplot() +
     scale_fill_manual(values = c("female" = "#f4a582", "male" = "#92c5de")) + 
   labs(title = paste("Two-sample t-test, P-Value = ", round(t_test_result$p.value, 3), add_stars(t_test_result$p.value), sep = ""),
@@ -544,15 +535,13 @@ matched_edits_2 <- ggplot(matched_data, aes(x = factor(sex, levels = c("female",
   guides(fill = FALSE)+ 
   scale_y_continuous(trans = 'log2')
 
+ggsave(here("visualisations", "matched_boxplot5.pdf"), plot =  matched_edits, width = 5, height = 6, units = "in", dpi = 600)
 
-matched_edits_2
-
-ggsave(here("visualisations", "matched_boxplot5.pdf"), plot =  matched_edits_2, width = 5, height = 6, units = "in", dpi = 600)
-
+matched_edits
 ```
 
 ### create tables for descriptive indicators
-Now, we want to create tables, showing the variable of interest, the female and male means, the p-value and the effect size (Cohens's). First, we need to prepare the data for the next steps.
+Now, we want to create tables, showing the variable of interest, the female and male means, the p-value and the effect size (Cohens's d). First, we need to prepare the data for the next steps.
 ```{r}
 #calculate statstics with log scales
 

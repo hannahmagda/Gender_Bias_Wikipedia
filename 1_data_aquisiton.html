@@ -357,9 +357,9 @@ display: none;
 </div>
 
 
-<p>This script provies the code to aquire the necessary Wikipedia Data
+<p>This script provides the code to aquire the necessary Wikipedia Data
 for my analyis, using the CLD database and the wikiediaR package. It
-outputs the raw data used for the analysis.</p>
+outputs the raw data used for the analysis, that is “deu_text”.</p>
 <div id="necessary-packages" class="section level3">
 <h3>Necessary packages</h3>
 <pre class="r"><code>library(legislatoR)
@@ -367,18 +367,16 @@ library(WikipediR)
 library(rvest)
 library(dplyr)
 library(here)
-
-#for old data:
 library(httr)
 library(jsonlite)
 library(rvest)
 library(pbapply)</code></pre>
 </div>
-<div id="get-cld-data" class="section level3">
-<h3>Get CLD Data</h3>
+<div id="get-the-cld-data" class="section level3">
+<h3>Get the CLD Data</h3>
 <p>In order to conduct the analysis, we need the Comparative Legislator
 Database for Germany which we can simply access via the legislatoR
-package. The data is read in ans saved in the following code.</p>
+package. The data is read in and saved in the following code.</p>
 <pre class="r"><code># deu_core &lt;- get_core(legislature = &quot;deu&quot;)
 # deu_political &lt;- get_political(legislature = &quot;deu&quot;)
 # deu_traffic &lt;- get_traffic(legislature = &quot;deu&quot;)
@@ -393,13 +391,13 @@ package. The data is read in ans saved in the following code.</p>
 </div>
 <div id="necessary-functions" class="section level3">
 <h3>Necessary functions</h3>
-<p>The following code provides the functions necessary to aquire the
-wikipedia texts, using the page_name of the politicians.</p>
+<p>The following code contains the functions required to gather the
+Wikipedia texts using the politicians’ page name</p>
 <pre class="r"><code>#function to aquire the current wikipedia text
 
 de_text_pipeline &lt;- function(page_name) {
   
-  #best practice to avoid overloading the Wikipedia servers and to practice responsible web scraping
+  #responsible web scraping
   Sys.sleep(runif(1, 1, 2))
   
   # Check if page_name is missing
@@ -422,7 +420,7 @@ de_text_pipeline &lt;- function(page_name) {
 #function to get old versions of Wikipedia pages
 
 get_wikipedia_content_from_past &lt;- function(wikititle) {
-  #best practice to avoid overloading the Wikipedia servers and to practice responsible web scraping
+  #responsible web scraping
   Sys.sleep(runif(1, 1, 2))
   rvest_session &lt;- session(url, 
                            add_headers(`From` = &quot;hannahschweren@gmail.com&quot;, 
@@ -434,18 +432,20 @@ get_wikipedia_content_from_past &lt;- function(wikititle) {
                 wikititle, &quot;&amp;rvlimit=1&amp;rvdir=older&amp;rvstart=&quot;, ten_years_ago, 
                 &quot;&amp;format=json&amp;formatversion=2&quot;)
   
-  response &lt;- GET(url)
-  response_content &lt;- content(response, &quot;text&quot;, encoding = &quot;UTF-8&quot;)
-  parsed_content &lt;- fromJSON(response_content)
+  response &lt;- GET(url)  #Make a GET request to the URL
+  response_content &lt;- content(response, &quot;text&quot;, encoding = &quot;UTF-8&quot;) # Get the content of the response
+  parsed_content &lt;- fromJSON(response_content) # Parse the JSON content
   
+  # Get the revision ID from the parsed JSON
   revision_id &lt;- parsed_content$query$pages$revisions[[1]]$revid
   
+  # Construct the URL to get the content of the old version
   content_url &lt;- paste0(&quot;https://de.wikipedia.org/w/api.php?action=parse&amp;oldid=&quot;, 
                         revision_id, &quot;&amp;format=json&amp;prop=text&quot;)
   
-  content_response &lt;- GET(content_url)
-  content_response_content &lt;- content(content_response, &quot;text&quot;, encoding = &quot;UTF-8&quot;)
-  parsed_content_response &lt;- fromJSON(content_response_content)
+  content_response &lt;- GET(content_url) # Make a GET request to the content URL
+  content_response_content &lt;- content(content_response, &quot;text&quot;, encoding = &quot;UTF-8&quot;) # Get the content
+  parsed_content_response &lt;- fromJSON(content_response_content) # Parse the JSON content
   
   # Extract html content
   html_content &lt;- parsed_content_response$parse$text$`*`
@@ -456,6 +456,8 @@ get_wikipedia_content_from_past &lt;- function(wikititle) {
 
   return(plain_text)
 }
+
+#function to apply the function for the old data while showing progress
 
 apply_function_with_progress &lt;- function(df) {
   df$old_text &lt;- pblapply(df$wikititle, function(title) {
@@ -491,8 +493,8 @@ get the politician’s biographies</p>
 #   }
 # })</code></pre>
 </div>
-<div id="save-the-data" class="section level3">
-<h3>Save the data</h3>
+<div id="save-the-raw-data" class="section level3">
+<h3>Save the raw data</h3>
 <p>The raw data is saved in order to be used for the follwoing
 analysis</p>
 <pre class="r"><code>#write.csv(deu_text, file = here(&quot;data&quot;, &quot;raw&quot;, &quot;deu_text.csv&quot;), row.names = FALSE)</code></pre>

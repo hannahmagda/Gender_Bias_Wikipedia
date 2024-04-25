@@ -357,12 +357,13 @@ display: none;
 </div>
 
 
-<p>This script provides the code for my PMI analyis. First, a pipeline
-is developped to turn the text data into vocabulary and then a PMI
-analyis is applied to this vocabulary for each subgroup of data of
-interest (unmatched/matched/party/age/old subgroups). The code for the
-PMI analysis is based on code written by Eduardo Graells-Garrido and can
-be found in the following repository: <a href="https://github.com/clauwag/WikipediaGenderInequality/tree/master/notebooks" class="uri">https://github.com/clauwag/WikipediaGenderInequality/tree/master/notebooks</a></p>
+<p>This script provides the code for the analyis of word use with
+Pointwise mutual information. First, a pipeline is created to turn the
+text data into vocabulary and then a PMI analyis is applied to this
+vocabulary for each subgroup of data of interest
+(unmatched/matched/party/age/old subgroups). The code for the PMI
+analysis is based on code written by Eduardo Graells-Garrido and can be
+found in the following repository: <a href="https://github.com/clauwag/WikipediaGenderInequality/tree/master/notebooks" class="uri">https://github.com/clauwag/WikipediaGenderInequality/tree/master/notebooks</a></p>
 <div id="necessary-packages" class="section level3">
 <h3>Necessary packages</h3>
 <pre class="r"><code>library(legislatoR)
@@ -386,7 +387,7 @@ matched_data &lt;- read.csv((&quot;data/clean/matched_data.csv&quot;))</code></p
 </div>
 <div id="necessary-functions" class="section level3">
 <h3>Necessary functions</h3>
-<pre class="r"><code>#first, the data is prepared to be in the necessary shpe for the PMI analyis by the following function
+<pre class="r"><code>#first, the data is prepared to be in the necessary shape for the PMI analyis by the following function
 
 prepare_vocabulary &lt;- function(data_frame, text_column) {
   #create a copy to not change the original data
@@ -403,7 +404,7 @@ prepare_vocabulary &lt;- function(data_frame, text_column) {
     summarise(text = paste(!!sym(text_column), collapse = &quot; &quot;)) %&gt;%
     ungroup()
   
-  # Create the vocabulary
+  # Create a corpus with the of gender as identifier
   corpus_created &lt;- corpus(summary_df, docid_field = &quot;sex&quot;)
   
   return(corpus_created)
@@ -411,7 +412,7 @@ prepare_vocabulary &lt;- function(data_frame, text_column) {
 
 #############################################################################################################################################################
 
-# define words that mess with the analyis, starting with gender senstitive occupation labels
+# define words that disturb the analysis, starting with gender sensitive occupation labels
 
 gender_neutral_replacements &lt;- c(
   &quot;Politikerin&quot; = &quot;Politiker&quot;,
@@ -523,7 +524,7 @@ gender_neutral_replacements &lt;- c(
 first_words &lt;- vapply(strsplit(deu$plain_text, &quot;\\s+&quot;), function(x) gsub(&quot;[,;:.!?]+$&quot;, &quot;&quot;, x[1]), character(1))
 second_words &lt;- vapply(strsplit(deu$plain_text, &quot;\\s+&quot;), function(x) ifelse(length(x) &gt; 1, gsub(&quot;[,;:.!?]+$&quot;, &quot;&quot;, x[2]), &quot;&quot;), character(1))
 
-#extract mobths
+#extract months
 months &lt;- c(&quot;januar&quot;, &quot;februar&quot;, &quot;märz&quot;, &quot;april&quot;, &quot;mai&quot;, &quot;juni&quot;, &quot;juli&quot;, &quot;august&quot;, &quot;september&quot;, &quot;oktober&quot;, &quot;november&quot;, &quot;dezember&quot;, &quot;eins&quot;, &quot;zwei&quot;, &quot;drei&quot;, &quot;vier&quot;, &quot;fünf&quot;, &quot;sechs&quot;, &quot;sieben&quot;, &quot;acht&quot;, &quot;neun&quot;, &quot;zehn&quot;, &quot;1949–2002&quot;, &quot;3-598-23782-0&quot;)
 
 #extract cities
@@ -538,7 +539,7 @@ cities &lt;- c(&quot;berlin&quot;, &quot;heidelberg&quot;, &quot;hamburg&quot;, 
             &quot;hagen&quot;, &quot;hamm&quot;, &quot;saarbrücken&quot;, &quot;mülheim an der ruhr&quot;, &quot;potsdam&quot;, 
             &quot;ludwigshafen&quot;, &quot;oldenburg&quot;, &quot;leverkusen&quot;, &quot;osnabrück&quot;, &quot;bonn&quot;)
 
-#extract stopwords &quot;Stoppwörter der Deutschen Rechtssprache (SW-DE-RS)&quot; (Fobbe, 2020)
+#extract stopwords &quot;Stoppwörter der Deutschen Rechtssprache&quot; (Fobbe, 2020)
 custom.stopwords &lt;- read.csv(&quot;data/raw/SW-DE-RS_v1-0-0_Datensatz.csv&quot;)
 custom.stopwords &lt;- unlist(custom.stopwords)
 custom.stopwords &lt;- unname(custom.stopwords)
@@ -554,8 +555,8 @@ words_to_remove &lt;- unique(c(first_words, second_words, months, cities, stopwo
 
 process_corpus &lt;- function(corpus, gender_neutral_replacements, words_to_remove) {
   
-  # Tokenizing the corpus and removing/replacing data that messes with the analyis
-  # puntuation, capital letters, numbers etc. are removed
+  # Tokenizing the corpus and removing/replacing data that disturbs the analysis
+  # punctuation, capital letters, numbers etc. are removed
   tokens &lt;- tokens(corpus, remove_punct = TRUE, remove_numbers = TRUE, remove_symbols = TRUE) %&gt;%
     tokens_tolower() %&gt;%
     tokens_replace(pattern = names(gender_neutral_replacements), replacement = gender_neutral_replacements, case_insensitive = TRUE) %&gt;%
@@ -644,7 +645,7 @@ calculate_pmi_and_filter &lt;- function(corpus_transposed, corpus_name, min_p = 
 <h1>create subgroups for further analyis</h1>
 <p>In order to look into age and party groups, we need to define those
 groups. The following code serves this purpose</p>
-<pre class="r"><code># cretae three age cohorts
+<pre class="r"><code># create three age cohorts
 
 cohort_assignment &lt;- function(year) {
   if(year &lt; 1949) {
@@ -657,13 +658,13 @@ cohort_assignment &lt;- function(year) {
 }
 
 
-# apply the function to the coumn birthyear
+# apply the function to the column birth year
 cohort_vector &lt;- sapply(matched_data$birthyear, cohort_assignment)
 
 # split the data based on the defined cohorts
 list_of_dfs &lt;- split(matched_data, cohort_vector)
 
-# cretae one dataframe per cohort to conduct the PMI analyis for each cohort
+# create one dataframe per cohort to conduct the PMI analysis for each cohort
 cohort1 &lt;- list_of_dfs$cohort1
 cohort2 &lt;- list_of_dfs$cohort2
 cohort3 &lt;- list_of_dfs$cohort3</code></pre>
@@ -700,15 +701,23 @@ afd_df &lt;- party_dfs[[&quot;AfD&quot;]]</code></pre>
 applied to all relevant groups</p>
 <pre class="r"><code># #whole sample, life section########################################################################################
 # # Step 1: 
-# corpus &lt;- prepare_vocabulary(deu, &quot;extracted_text&quot;)
-# 
-# # Step 2: 
-# corpus_transposed &lt;- process_corpus(corpus, gender_neutral_replacements, words_to_remove)
-# 
-# # Step 3: 
-# results &lt;- calculate_pmi_and_filter(corpus_transposed, &quot;deu_life&quot;)
-#
-# #whole 
+corpus &lt;- prepare_vocabulary(deu, &quot;extracted_text&quot;)
+
+# Step 2:
+corpus_transposed &lt;- process_corpus(corpus, gender_neutral_replacements, words_to_remove)</code></pre>
+<pre><code>## Document-feature matrix of: 2 documents, 32,093 features (41.38% sparse) and 0 docvars.
+##     features
+## docs abitur kaiser-karls-gymnasium absolviert studium psychologi th
+##    0   1413                      3       1343    1285         20 18
+##    1    486                      0        415     432         22  5
+##     features
+## docs diplom-psycholog beendet erziehungsberat beratungsstell
+##    0                4     605               1              5
+##    1                0     171               1              1
+## [ reached max_nfeat ... 32,083 more features ]</code></pre>
+<pre class="r"><code># Step 3:
+results &lt;- calculate_pmi_and_filter(corpus_transposed, &quot;deu_life&quot;)
+
 
 # #whole sample career/party section########################################################################################
 # # Step 1: 

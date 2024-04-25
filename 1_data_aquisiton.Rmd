@@ -5,7 +5,7 @@ date: "2024-03-15"
 output: html_document
 ---
 
-This script provies the code to aquire the necessary Wikipedia Data for my analyis, using the CLD database and the wikiediaR package. It outputs the raw data used for the analysis, namely "deu_text".
+This script provides the code to aquire the necessary Wikipedia Data for my analyis, using the CLD database and the wikiediaR package. It outputs the raw data used for the analysis, that is "deu_text".
 
 ### Necessary packages
 ```{r message=FALSE, warning=FALSE}
@@ -14,18 +14,16 @@ library(WikipediR)
 library(rvest)
 library(dplyr)
 library(here)
-
-#for old data:
 library(httr)
 library(jsonlite)
 library(rvest)
 library(pbapply)
 ```
 
-### Get CLD Data
+### Get the CLD Data
 
 
-In order to conduct the analysis, we need the Comparative Legislator Database for Germany which we can simply access via the legislatoR package. The data is read in ans saved in the following code.
+In order to conduct the analysis, we need the Comparative Legislator Database for Germany which we can simply access via the legislatoR package. The data is read in and saved in the following code.
 ```{r}
 # deu_core <- get_core(legislature = "deu")
 # deu_political <- get_political(legislature = "deu")
@@ -44,14 +42,14 @@ In order to conduct the analysis, we need the Comparative Legislator Database fo
 
 ### Necessary functions
 
-The following code provides the functions necessary to aquire the wikipedia texts, using the page_name of the politicians. 
+The following code contains the functions required to gather the Wikipedia texts using the politicians' page name
 ```{r}
 
 #function to aquire the current wikipedia text
 
 de_text_pipeline <- function(page_name) {
   
-  #best practice to avoid overloading the Wikipedia servers and to practice responsible web scraping
+  #responsible web scraping
   Sys.sleep(runif(1, 1, 2))
   
   # Check if page_name is missing
@@ -74,7 +72,7 @@ de_text_pipeline <- function(page_name) {
 #function to get old versions of Wikipedia pages
 
 get_wikipedia_content_from_past <- function(wikititle) {
-  #best practice to avoid overloading the Wikipedia servers and to practice responsible web scraping
+  #responsible web scraping
   Sys.sleep(runif(1, 1, 2))
   rvest_session <- session(url, 
                            add_headers(`From` = "hannahschweren@gmail.com", 
@@ -86,18 +84,20 @@ get_wikipedia_content_from_past <- function(wikititle) {
                 wikititle, "&rvlimit=1&rvdir=older&rvstart=", ten_years_ago, 
                 "&format=json&formatversion=2")
   
-  response <- GET(url)
-  response_content <- content(response, "text", encoding = "UTF-8")
-  parsed_content <- fromJSON(response_content)
+  response <- GET(url)  #Make a GET request to the URL
+  response_content <- content(response, "text", encoding = "UTF-8") # Get the content of the response
+  parsed_content <- fromJSON(response_content) # Parse the JSON content
   
+  # Get the revision ID from the parsed JSON
   revision_id <- parsed_content$query$pages$revisions[[1]]$revid
   
+  # Construct the URL to get the content of the old version
   content_url <- paste0("https://de.wikipedia.org/w/api.php?action=parse&oldid=", 
                         revision_id, "&format=json&prop=text")
   
-  content_response <- GET(content_url)
-  content_response_content <- content(content_response, "text", encoding = "UTF-8")
-  parsed_content_response <- fromJSON(content_response_content)
+  content_response <- GET(content_url) # Make a GET request to the content URL
+  content_response_content <- content(content_response, "text", encoding = "UTF-8") # Get the content
+  parsed_content_response <- fromJSON(content_response_content) # Parse the JSON content
   
   # Extract html content
   html_content <- parsed_content_response$parse$text$`*`
@@ -108,6 +108,8 @@ get_wikipedia_content_from_past <- function(wikititle) {
 
   return(plain_text)
 }
+
+#function to apply the function for the old data while showing progress
 
 apply_function_with_progress <- function(df) {
   df$old_text <- pblapply(df$wikititle, function(title) {
